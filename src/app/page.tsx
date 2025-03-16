@@ -1,0 +1,322 @@
+'use client';
+
+import { useWedding } from '../context/WeddingContext';
+import { formatCurrency } from '../lib/excel-utils';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { Button } from '../components/ui/Button';
+import { WeddingDetails } from '@/components/dashboard/WeddingDetails';
+import { useAuth } from '@/context/AuthContext';
+import { UpcomingPayments } from '@/components/dashboard/UpcomingPayments';
+
+export default function Home() {
+  const { expenses, gifts, contributors, isLoading, getDashboardStats, exportData } = useWedding();
+  const { user } = useAuth();
+  const [stats, setStats] = useState(() => getDashboardStats());
+  const [showFallback, setShowFallback] = useState(false);
+
+  useEffect(() => {
+    setStats(getDashboardStats());
+    
+    // If still loading after 5 seconds, show fallback UI
+    const timeout = setTimeout(() => {
+      if (isLoading) {
+        setShowFallback(true);
+      }
+    }, 5000);
+    
+    return () => clearTimeout(timeout);
+  }, [getDashboardStats, isLoading]);
+
+  if (isLoading && !showFallback) {
+    return (
+      <div className="flex items-center justify-center min-h-[80vh]">
+        <div className="text-center">
+          <h1 className="text-3xl font-serif font-bold mb-6 text-blue-800">Loading your wedding finances...</h1>
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-800 mx-auto" />
+        </div>
+      </div>
+    );
+  }
+  
+  // Fallback UI if loading takes too long
+  if (showFallback) {
+    return (
+      <div className="container px-4 sm:px-6 py-8 max-w-7xl mx-auto">
+        <div className="max-w-5xl mx-auto">
+          <div className="bg-white/90 border border-blue-200 rounded-lg shadow-lg p-8 mb-10">
+            <div className="flex items-center space-x-4 mb-6">
+              <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                <svg className="h-6 w-6 text-blue-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-labelledby="warning-icon-title">
+                  <title id="warning-icon-title">Warning</title>
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-2xl font-serif font-bold text-blue-800">Demo Mode Activated</h2>
+                <p className="text-blue-700">You're currently viewing sample data</p>
+              </div>
+            </div>
+            <p className="mb-6 text-blue-700 text-lg">We're having trouble connecting to your database. In the meantime, you can explore the app using demo data.</p>
+            <Button onClick={() => window.location.reload()} className="bg-blue-700 hover:bg-blue-800 text-white">
+              Retry Connection
+            </Button>
+          </div>
+        
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+            <div className="card card-hover bg-white/90 rounded-xl shadow-md overflow-hidden border border-blue-200 transition-all duration-300">
+              <div className="p-6 border-t-4 border-t-blue-800">
+                <h3 className="text-sm font-medium text-blue-700 uppercase tracking-wider mb-1">Total Budget</h3>
+                <p className="text-4xl font-serif font-bold text-blue-800">{formatCurrency(10500)}</p>
+                <p className="text-sm text-blue-600 mt-2">Sample wedding budget</p>
+              </div>
+            </div>
+            <div className="card card-hover bg-white/90 rounded-xl shadow-md overflow-hidden border border-blue-200 transition-all duration-300">
+              <div className="p-6 border-t-4 border-t-green-600">
+                <h3 className="text-sm font-medium text-blue-700 uppercase tracking-wider mb-1">Paid So Far</h3>
+                <p className="text-4xl font-serif font-bold text-green-700">{formatCurrency(3500)}</p>
+                <p className="text-sm text-blue-600 mt-2">34% of total budget</p>
+              </div>
+            </div>
+            <div className="card card-hover bg-white/90 rounded-xl shadow-md overflow-hidden border border-blue-200 transition-all duration-300">
+              <div className="p-6 border-t-4 border-t-amber-500">
+                <h3 className="text-sm font-medium text-blue-700 uppercase tracking-wider mb-1">Remaining</h3>
+                <p className="text-4xl font-serif font-bold text-amber-600">{formatCurrency(7000)}</p>
+                <p className="text-sm text-blue-600 mt-2">Due within 3 months</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+            <div className="card bg-white/90 rounded-xl shadow-md p-6 border border-blue-200">
+              <h3 className="text-xl font-serif font-bold mb-6 pb-2 border-b border-blue-200 flex items-center">
+                <span className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                  <svg className="h-4 w-4 text-blue-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-labelledby="quick-actions-title">
+                    <title id="quick-actions-title">Quick Actions</title>
+                    <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </span>
+                Quick Actions
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <Link href="/expenses" className="flex flex-col items-center justify-center p-6 rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 hover:border-blue-300 transition-all duration-300 hover:shadow-md group">
+                  <svg className="h-6 w-6 text-blue-700 mb-3 group-hover:scale-110 transition-transform duration-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-labelledby="expenses-icon-title">
+                    <title id="expenses-icon-title">Expenses</title>
+                    <path d="M12 2a10 10 0 1 0 10 10H12V2z" />
+                    <path d="M20 12a8 8 0 1 0-16 0" />
+                    <path d="M12 12H2" />
+                  </svg>
+                  <span className="font-medium text-blue-800 group-hover:text-blue-900">View Expenses</span>
+                </Link>
+                <Link href="/contributors" className="flex flex-col items-center justify-center p-6 rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 hover:border-blue-300 transition-all duration-300 hover:shadow-md group">
+                  <svg className="h-6 w-6 text-blue-700 mb-3 group-hover:scale-110 transition-transform duration-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-labelledby="contributors-icon-title">
+                    <title id="contributors-icon-title">Contributors</title>
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                  </svg>
+                  <span className="font-medium text-blue-800 group-hover:text-blue-900">View Contributors</span>
+                </Link>
+                <Link href="/gifts" className="flex flex-col items-center justify-center p-6 rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 hover:border-blue-300 transition-all duration-300 hover:shadow-md group">
+                  <svg className="h-6 w-6 text-blue-700 mb-3 group-hover:scale-110 transition-transform duration-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-labelledby="gifts-icon-title">
+                    <title id="gifts-icon-title">Gifts</title>
+                    <path d="M20 12v10H4V12" />
+                    <path d="M2 7h20v5H2z" />
+                    <path d="M12 22V7" />
+                    <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
+                    <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
+                  </svg>
+                  <span className="font-medium text-blue-800 group-hover:text-blue-900">View Gifts</span>
+                </Link>
+                <button 
+                  className="flex flex-col items-center justify-center p-6 rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 hover:border-blue-300 transition-all duration-300 hover:shadow-md group"
+                  type="button"
+                  onClick={() => window.location.reload()}
+                >
+                  <svg className="h-6 w-6 text-blue-700 mb-3 group-hover:scale-110 transition-transform duration-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-labelledby="reload-icon-title">
+                    <title id="reload-icon-title">Reload</title>
+                    <path d="M23 4v6h-6" />
+                    <path d="M1 20v-6h6" />
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                  </svg>
+                  <span className="font-medium text-blue-800 group-hover:text-blue-900">Retry Connection</span>
+                </button>
+              </div>
+            </div>
+            
+            <div className="card bg-white/90 rounded-xl shadow-md p-6 border border-blue-200">
+              <h3 className="text-xl font-serif font-bold mb-6 pb-2 border-b border-blue-200 flex items-center">
+                <span className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                  <svg className="h-4 w-4 text-blue-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-labelledby="demo-data-title">
+                    <title id="demo-data-title">Demo Data</title>
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                  </svg>
+                </span>
+                Demo Data
+              </h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+                  <span className="font-medium text-blue-800">Sample Expenses</span>
+                  <span className="font-mono text-sm bg-white px-3 py-1 rounded-full shadow-sm border border-blue-200 text-blue-800">{3}</span>
+                </div>
+                <div className="flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+                  <span className="font-medium text-blue-800">Sample Contributors</span>
+                  <span className="font-mono text-sm bg-white px-3 py-1 rounded-full shadow-sm border border-blue-200 text-blue-800">{3}</span>
+                </div>
+                <div className="flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+                  <span className="font-medium text-blue-800">Sample Gifts</span>
+                  <span className="font-mono text-sm bg-white px-3 py-1 rounded-full shadow-sm border border-blue-200 text-blue-800">{2}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container px-4 sm:px-6 py-8 max-w-7xl mx-auto">
+      <div className="max-w-6xl mx-auto">
+        {user && (
+          <div className="mb-8">
+            <WeddingDetails />
+          </div>
+        )}
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+          <div className="card card-hover bg-white/90 rounded-xl shadow-md overflow-hidden border border-blue-200 transition-all duration-300">
+            <div className="p-6 border-t-4 border-t-blue-800">
+              <h3 className="text-sm font-medium text-blue-700 uppercase tracking-wider mb-1">Total Budget</h3>
+              <p className="text-4xl font-serif font-bold text-blue-800">{formatCurrency(stats.totalExpenses)}</p>
+              <p className="text-sm text-blue-600 mt-2">Wedding budget</p>
+            </div>
+          </div>
+          <div className="card card-hover bg-white/90 rounded-xl shadow-md overflow-hidden border border-blue-200 transition-all duration-300">
+            <div className="p-6 border-t-4 border-t-green-600">
+              <h3 className="text-sm font-medium text-blue-700 uppercase tracking-wider mb-1">Paid So Far</h3>
+              <p className="text-4xl font-serif font-bold text-green-700">{formatCurrency(stats.totalPaid)}</p>
+              <p className="text-sm text-blue-600 mt-2">{stats.totalExpenses > 0 ? `${Math.round((stats.totalPaid / stats.totalExpenses) * 100)}% of total` : '0% of total'}</p>
+            </div>
+          </div>
+          <div className="card card-hover bg-white/90 rounded-xl shadow-md overflow-hidden border border-blue-200 transition-all duration-300">
+            <div className="p-6 border-t-4 border-t-amber-500">
+              <h3 className="text-sm font-medium text-blue-700 uppercase tracking-wider mb-1">Remaining</h3>
+              <p className="text-4xl font-serif font-bold text-amber-600">{formatCurrency(stats.totalRemaining)}</p>
+              <p className="text-sm text-blue-600 mt-2">Outstanding balance</p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Upcoming Payments */}
+        <div className="mb-12">
+          <UpcomingPayments />
+        </div>
+        
+        {/* Contributors & Gifts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+          <div className="card bg-white/90 rounded-xl shadow-md overflow-hidden border border-blue-200">
+            <div className="p-6 border-b border-blue-200 flex justify-between items-center bg-gradient-to-r from-blue-50 to-white">
+              <h2 className="text-xl font-serif font-bold text-blue-800">Contributors</h2>
+              <Link href="/contributors" className="text-sm font-medium text-blue-700 hover:text-blue-900 transition-colors flex items-center">
+                View All
+                <svg className="h-4 w-4 ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-labelledby="view-contributors-title">
+                  <title id="view-contributors-title">View all contributors</title>
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
+            <div className="p-6">
+              {contributors.length > 0 ? (
+                <div className="space-y-4">
+                  {contributors.map((contributor) => (
+                    <div key={contributor.id} className="flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+                      <span className="font-medium text-blue-800">{contributor.name}</span>
+                      <Link href={`/contributors/${contributor.id}`} className="text-sm text-blue-700 hover:text-blue-900">View</Link>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <p className="text-blue-600 mb-4">No contributors found</p>
+                  <Link 
+                    href="/contributors/new" 
+                    className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-blue-700 text-white hover:bg-blue-800 h-9 px-4"
+                  >
+                    Add Contributor
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="card bg-white/90 rounded-xl shadow-md overflow-hidden border border-blue-200">
+            <div className="p-6 border-b border-blue-200 flex justify-between items-center bg-gradient-to-r from-blue-50 to-white">
+              <h2 className="text-xl font-serif font-bold text-blue-800">Recent Gifts</h2>
+              <Link href="/gifts" className="text-sm font-medium text-blue-700 hover:text-blue-900 transition-colors flex items-center">
+                View All
+                <svg className="h-4 w-4 ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-labelledby="view-gifts-title">
+                  <title id="view-gifts-title">View all gifts</title>
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
+            <div className="p-6">
+              {gifts.length > 0 ? (
+                <div className="space-y-4">
+                  {gifts.map((gift) => (
+                    <div key={gift.id} className="flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+                      <div>
+                        <span className="font-medium text-blue-800">{formatCurrency(gift.amount)}</span>
+                        <p className="text-sm text-blue-600">From: {gift.fromPerson}</p>
+                      </div>
+                      <Link href={`/gifts/${gift.id}`} className="text-sm text-blue-700 hover:text-blue-900">View</Link>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <p className="text-blue-600 mb-4">No gifts recorded</p>
+                  <Link 
+                    href="/gifts/new" 
+                    className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-blue-700 text-white hover:bg-blue-800 h-9 px-4"
+                  >
+                    Add Gift
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {/* Export Data */}
+        <div className="card bg-white/90 rounded-xl shadow-md p-6 border border-blue-200 mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between">
+            <div className="mb-4 sm:mb-0">
+              <h3 className="text-xl font-serif font-bold text-blue-800 mb-2">Export Your Data</h3>
+              <p className="text-blue-600">Download all your wedding finance data as an Excel file</p>
+            </div>
+            <Button 
+              onClick={exportData} 
+              className="bg-blue-700 hover:bg-blue-800 text-white inline-flex items-center"
+            >
+              <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-labelledby="export-data-title">
+                <title id="export-data-title">Export data to Excel</title>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Export to Excel
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
