@@ -14,7 +14,7 @@ const nextConfig = {
   // Make sure images are properly optimized
   images: {
     domains: ['firebasestorage.googleapis.com'],
-    unoptimized: false,
+    unoptimized: true, // Set to true for static exports
   },
   // Ensure CSS is properly loaded
   poweredByHeader: false,
@@ -25,6 +25,8 @@ const nextConfig = {
     optimizeServerReact: true,
     optimizePackageImports: ['lucide-react']
   },
+  // Add output configuration for better Netlify compatibility
+  output: 'standalone',
 };
 
 module.exports = nextConfig; 
