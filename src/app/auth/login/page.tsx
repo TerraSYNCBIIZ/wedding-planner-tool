@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
@@ -16,10 +16,27 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [authComplete, setAuthComplete] = useState(false);
+  const [redirectTo, setRedirectTo] = useState<string | null>(null);
   
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { signIn, user } = useAuth();
   
+  // Effect to handle navigation after auth state is confirmed
+  useEffect(() => {
+    if (authComplete && redirectTo) {
+      console.log('Login: Auth complete, redirecting to', redirectTo);
+      
+      // Use a small timeout to ensure cookies are properly set before navigation
+      const redirectTimer = setTimeout(() => {
+        router.push(redirectTo);
+        router.refresh(); // Force a router refresh to ensure state is updated
+      }, 100);
+      
+      return () => clearTimeout(redirectTimer);
+    }
+  }, [authComplete, redirectTo, router]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -63,7 +80,8 @@ export default function LoginPage() {
         // Also use our utility to set localStorage
         setHasCompletedSetup(userId);
         
-        router.push('/');
+        setAuthComplete(true);
+        setRedirectTo('/');
         return;
       }
       
@@ -97,13 +115,15 @@ export default function LoginPage() {
         // Also use our utility to set localStorage
         setHasCompletedSetup('member');
         
-        router.push('/');
+        setAuthComplete(true);
+        setRedirectTo('/');
         return;
       }
       
       // If no wedding data or memberships exist, redirect to setup wizard
       console.log('Login: No wedding data or memberships found, redirecting to setup wizard');
-      router.push('/setup-wizard');
+      setAuthComplete(true);
+      setRedirectTo('/setup-wizard');
     } catch (error: unknown) {
       // Extract error message from Firebase
       let errorMessage = 'An error occurred during sign in';
@@ -126,7 +146,6 @@ export default function LoginPage() {
       
       console.error('Login: Error during sign in:', error);
       setError(errorMessage);
-    } finally {
       setIsLoading(false);
     }
   };
@@ -197,13 +216,18 @@ export default function LoginPage() {
           <div>
             <Button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || authComplete}
               className="w-full py-2.5"
             >
               {isLoading ? (
                 <>
                   <span className="inline-block animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2" aria-hidden="true" />
                   Signing in...
+                </>
+              ) : authComplete ? (
+                <>
+                  <span className="inline-block animate-pulse h-4 w-4 mr-2" aria-hidden="true" />
+                  Redirecting...
                 </>
               ) : (
                 <>

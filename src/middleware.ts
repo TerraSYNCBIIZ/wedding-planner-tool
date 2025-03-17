@@ -18,6 +18,17 @@ export function middleware(request: NextRequest) {
   // Check for migration status
   const needsMigration = request.cookies.get('needsMigration')?.value === 'true';
   
+  // Skip middleware for static assets, API routes, and Next.js internals
+  if (
+    path.startsWith('/_next') || 
+    path.includes('/favicon.ico') ||
+    path.includes('/__nextjs_') ||
+    path.includes('/_vercel') ||
+    path.includes('.') // Skip files with extensions (.js, .css, etc.)
+  ) {
+    return NextResponse.next();
+  }
+  
   console.log('Middleware: Processing request', { 
     path, 
     hasAuth: !!authToken,
@@ -26,16 +37,11 @@ export function middleware(request: NextRequest) {
     needsMigration: needsMigration
   });
   
-  // Skip middleware for static assets and API routes
-  if (
-    path.startsWith('/_next') || 
-    path.includes('/favicon.ico')
-  ) {
-    return NextResponse.next();
-  }
-  
   // Public routes that don't require auth
   const publicRoutes = ['/auth/login', '/auth/signup', '/auth/forgot-password', '/invitation/accept'];
+  
+  // Check if current path matches any public route
+  const isPublicRoute = publicRoutes.some(route => path === route || path.startsWith(`${route}/`));
   
   // Routes that don't require migration
   const migrationExemptRoutes = [...publicRoutes, '/migration', '/api'];
@@ -84,13 +90,13 @@ export function middleware(request: NextRequest) {
   }
   
   // For public routes, if the user is authenticated and has completed setup, redirect to home
-  if (publicRoutes.includes(path) && authToken && userHasCompletedSetup) {
+  if (isPublicRoute && authToken && userHasCompletedSetup) {
     console.log('Middleware: Redirecting authenticated user from public route to dashboard');
     return NextResponse.redirect(new URL('/', request.url));
   }
   
   // For public routes, allow access without auth
-  if (publicRoutes.includes(path)) {
+  if (isPublicRoute) {
     return NextResponse.next();
   }
   
@@ -102,7 +108,14 @@ export function middleware(request: NextRequest) {
   // Check if the user is logged in for protected routes
   if (!authToken) {
     console.log('Middleware: Redirecting unauthenticated user to login');
-    return NextResponse.redirect(new URL('/auth/login', request.url));
+    
+    // Add the intended destination as a query param so we can redirect back after login
+    const redirectUrl = new URL('/auth/login', request.url);
+    if (path !== '/') {
+      redirectUrl.searchParams.set('redirect', path);
+    }
+    
+    return NextResponse.redirect(redirectUrl);
   }
   
   // For all non-setup-wizard routes, check if setup is completed or user has a workspace

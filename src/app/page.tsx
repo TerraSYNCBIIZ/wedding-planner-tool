@@ -540,8 +540,8 @@ export default function Home() {
                     }}
                   />
                 </div>
-              </div>
-              
+        </div>
+        
               {/* Contribution Usage */}
               <div className="mb-6">
                 <div className="flex justify-between items-center mb-2">
@@ -573,7 +573,7 @@ export default function Home() {
                     }}
                   />
                 </div>
-              </div>
+          </div>
               
               {/* Funds Summary */}
               <div>
@@ -587,7 +587,7 @@ export default function Home() {
                       )}
                     </div>
                     <div className="text-xs text-blue-600 mt-1">Unused contributions</div>
-                  </div>
+            </div>
                   <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
                     <div className="font-medium text-amber-800 mb-1">Remaining Budget</div>
                     <div className="font-bold text-amber-900">
@@ -662,9 +662,9 @@ export default function Home() {
                   })}
               </div>
             </div>
+            </div>
           </div>
-        </div>
-        
+          
         {/* Upcoming Payments */}
         <div className="bg-white shadow rounded-xl overflow-hidden border border-blue-100 mb-12">
           <div className="p-4 border-b border-blue-200 flex justify-between items-center bg-gradient-to-r from-blue-50 to-white">
@@ -676,13 +676,13 @@ export default function Home() {
               Upcoming Payments
             </h3>
             <Link href="/expenses" className="text-sm font-medium text-blue-700 hover:text-blue-900 transition-colors flex items-center">
-              View All
+                View All
               <svg className="h-4 w-4 ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                 <title>Arrow Right Icon</title>
-                <path d="M5 12h14M12 5l7 7-7 7" />
-              </svg>
-            </Link>
-          </div>
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
           <div className="divide-y divide-gray-100">
             {expenses.length > 0 ? (
               expenses.filter(exp => 
@@ -723,7 +723,7 @@ export default function Home() {
                         </span>
                       </Link>
                     </div>
-                  </div>
+                </div>
                 );
               })
             ) : (
@@ -731,9 +731,9 @@ export default function Home() {
                 No upcoming payments found. 
                 <Link href="/expenses/new" className="font-medium text-blue-700 hover:text-blue-900 ml-1">
                   Add an expense
-                </Link>
-              </div>
-            )}
+                  </Link>
+                </div>
+              )}
           </div>
         </div>
         

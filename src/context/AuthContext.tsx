@@ -14,7 +14,7 @@ import {
   reauthenticateWithCredential
 } from 'firebase/auth';
 import { app } from '@/lib/firebase';
-import { setCookie, deleteCookie } from 'cookies-next';
+import { setCookie, deleteCookie, getCookie } from 'cookies-next';
 
 // Initialize Firebase Auth
 const auth = getAuth(app);
@@ -25,20 +25,42 @@ const setAuthCookie = (token: string | null) => {
     // Set cookie with consistent naming (authToken)
     setCookie('authToken', token, {
       maxAge: 60 * 60 * 24 * 7, // 7 days
-      path: '/'
+      path: '/',
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production'
     });
     
     // Also set the old auth_token for backward compatibility
     setCookie('auth_token', token, {
       maxAge: 60 * 60 * 24 * 7, // 7 days
-      path: '/'
+      path: '/',
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production'
     });
+    
+    // Also store in localStorage for better persistence
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('authToken', token);
+      } catch (e) {
+        console.error('Failed to store token in localStorage:', e);
+      }
+    }
   } else {
     // Clear both cookie formats when signing out
     deleteCookie('authToken', { path: '/' });
     deleteCookie('auth_token', { path: '/' });
     deleteCookie('hasCompletedSetup', { path: '/' });
     deleteCookie('currentWeddingId', { path: '/' });
+    
+    // Also clear localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('authToken');
+      } catch (e) {
+        console.error('Failed to remove token from localStorage:', e);
+      }
+    }
   }
 };
 
@@ -51,6 +73,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   updateUserProfile: (displayName: string) => Promise<void>;
   deleteAccount: (password: string) => Promise<boolean>;
+  refreshAuthState: () => Promise<void>;
 }
 
 // Create the context
@@ -65,6 +88,21 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Function to refresh auth state manually if needed
+  const refreshAuthState = async () => {
+    if (!auth.currentUser) {
+      return;
+    }
+    
+    try {
+      const token = await auth.currentUser.getIdToken(true);
+      setAuthCookie(token);
+      setUser({ ...auth.currentUser });
+    } catch (error) {
+      console.error('Error refreshing auth state:', error);
+    }
+  };
   
   // Monitor auth state
   useEffect(() => {
@@ -126,6 +164,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const signIn = async (email: string, password: string): Promise<User> => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      
+      // Immediately get and set the token
+      const token = await userCredential.user.getIdToken();
+      setAuthCookie(token);
+      
       return userCredential.user;
     } catch (error) {
       console.error('Error signing in:', error);
@@ -140,6 +183,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       // Set the display name
       await updateProfile(userCredential.user, { displayName });
+      
+      // Immediately get and set the token
+      const token = await userCredential.user.getIdToken();
+      setAuthCookie(token);
       
       return userCredential.user;
     } catch (error) {
@@ -209,7 +256,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signUp,
     signOut,
     updateUserProfile,
-    deleteAccount
+    deleteAccount,
+    refreshAuthState
   };
   
   return (
