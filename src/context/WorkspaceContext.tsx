@@ -580,6 +580,33 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [currentWorkspaceId, registerTabActivity]);
   
+  // In the useEffect where workspaces are updated
+  useEffect(() => {
+    if (workspaces.length > 0 && !currentWorkspaceId) {
+      console.log('WorkspaceContext: Found workspaces but no currentWorkspaceId set, setting from first workspace');
+      
+      // Set the first workspace as current if none is selected
+      const firstWorkspace = workspaces[0];
+      setCurrentWorkspaceId(firstWorkspace.id);
+      
+      // Also set cookies for middleware
+      try {
+        const expiryDate = new Date();
+        expiryDate.setFullYear(expiryDate.getFullYear() + 1); // 1 year from now
+        
+        document.cookie = `hasCompletedSetup=true; path=/; expires=${expiryDate.toUTCString()}; SameSite=Lax`;
+        document.cookie = `currentWorkspaceId=${firstWorkspace.id}; path=/; expires=${expiryDate.toUTCString()}; SameSite=Lax`;
+        
+        console.log('WorkspaceContext: Set cookies for workspace:', {
+          workspaceId: firstWorkspace.id,
+          cookies: document.cookie
+        });
+      } catch (error) {
+        console.error('Error setting workspace cookies:', error);
+      }
+    }
+  }, [workspaces, currentWorkspaceId]);
+  
   // Context value
   const value = {
     workspaces,

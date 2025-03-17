@@ -18,12 +18,17 @@ import { CreditCard, DollarSign, AlertTriangle, CheckCircle } from 'lucide-react
 interface PaymentDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  expense: Expense;
+  expense: Expense | null;
 }
 
 export function PaymentDialog({ isOpen, onClose, expense }: PaymentDialogProps) {
   const { addPaymentToExpense, addGiftToContributor, contributors, expenses } = useWedding();
   const { toast } = useToast();
+  
+  // Early return if no expense is provided
+  if (!expense) {
+    return null;
+  }
   
   // Form state
   const [contributorId, setContributorId] = useState('');

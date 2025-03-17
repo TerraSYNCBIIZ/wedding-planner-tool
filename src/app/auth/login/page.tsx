@@ -191,6 +191,38 @@ export default function LoginPage() {
         console.log('Login: Using provided redirect:', redirectTo);
       }
       setAuthComplete(true);
+
+      // After detecting workspaces in localStorage
+      const workspaceKeys = Object.keys(localStorage);
+      if (workspaceKeys.length > 0) {
+        console.log('Login: Found workspace keys in localStorage:', workspaceKeys);
+        
+        // Extract the workspace ID from the keys
+        const workspaceIdMatch = workspaceKeys.find(key => key.includes('workspace_sync_') || key.includes('workspace_activity_'));
+        if (workspaceIdMatch) {
+          const parts = workspaceIdMatch.split('_');
+          const workspaceId = parts[parts.length - 1];
+          
+          if (workspaceId && workspaceId !== 'tabs') {
+            console.log('Login: Setting workspace ID cookie from localStorage:', workspaceId);
+            
+            // Set the cookies to ensure middleware recognizes the workspace
+            const expiryDate = new Date();
+            expiryDate.setFullYear(expiryDate.getFullYear() + 1); // 1 year from now
+            
+            document.cookie = `hasCompletedSetup=true; path=/; expires=${expiryDate.toUTCString()}; SameSite=Lax`;
+            document.cookie = `currentWorkspaceId=${workspaceId}; path=/; expires=${expiryDate.toUTCString()}; SameSite=Lax`;
+            
+            // Also set in localStorage for redundancy
+            localStorage.setItem('currentWorkspaceId', workspaceId);
+            
+            console.log('Login: Cookies set for workspace:', {
+              workspaceId,
+              cookies: document.cookie
+            });
+          }
+        }
+      }
     } catch (error: unknown) {
       // Extract error message from Firebase
       let errorMessage = 'An error occurred during sign in';

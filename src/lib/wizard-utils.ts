@@ -28,16 +28,47 @@ export const hasCompletedSetup = (): boolean => {
   
   // Check if user has any workspaces stored in localStorage
   let hasWorkspaces = false;
+  let workspaceKeys: string[] = [];
   try {
     // Look for any workspace-related data in localStorage that would indicate 
     // the user has existing workspaces
     const keys = Object.keys(localStorage);
-    const workspaceKeys = keys.filter(key => 
+    workspaceKeys = keys.filter(key => 
       key.includes('workspace_') || 
       key.includes('currentWorkspaceId') ||
       key.includes('initialWorkspaceLoadTriggered')
     );
     hasWorkspaces = workspaceKeys.length > 0;
+    
+    // If we found workspace keys but don't have the cookies set, set them now
+    if (hasWorkspaces && !hasSetupCookie && !hasWorkspaceIdCookie) {
+      console.log('Found workspace keys in localStorage but no cookies set, setting cookies now');
+      
+      // Try to extract a workspace ID from the keys
+      const workspaceIdMatch = workspaceKeys.find(key => 
+        key.includes('workspace_sync_') || 
+        key.includes('workspace_activity_')
+      );
+      
+      if (workspaceIdMatch) {
+        const parts = workspaceIdMatch.split('_');
+        const extractedWorkspaceId = parts[parts.length - 1];
+        
+        if (extractedWorkspaceId && extractedWorkspaceId !== 'tabs') {
+          console.log('Setting workspace ID cookie from localStorage:', extractedWorkspaceId);
+          
+          // Set the cookies to ensure middleware recognizes the workspace
+          const expiryDate = new Date();
+          expiryDate.setFullYear(expiryDate.getFullYear() + 1); // 1 year from now
+          
+          document.cookie = `hasCompletedSetup=true; path=/; expires=${expiryDate.toUTCString()}; SameSite=Lax`;
+          document.cookie = `currentWorkspaceId=${extractedWorkspaceId}; path=/; expires=${expiryDate.toUTCString()}; SameSite=Lax`;
+          
+          // Also set in localStorage for redundancy
+          localStorage.setItem('currentWorkspaceId', extractedWorkspaceId);
+        }
+      }
+    }
   } catch (e) {
     console.error('Error checking localStorage for workspaces:', e);
   }
@@ -51,6 +82,7 @@ export const hasCompletedSetup = (): boolean => {
     hasWorkspaceIdCookie,
     workspaceId,
     hasWorkspaces,
+    workspaceKeys,
     cookies: document.cookie
   });
   

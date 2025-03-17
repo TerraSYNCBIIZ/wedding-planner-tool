@@ -1,0 +1,147 @@
+[1mdiff --git a/ -1 b/ -1[m
+[1mnew file mode 100644[m
+[1mindex 0000000..78a3ea1[m
+[1m--- /dev/null[m
+[1m+++ b/ -1[m	
+[36m@@ -0,0 +1,30 @@[m
+[32m+[m
+[32m+[m[32m                   SSUUMMMMAARRYY OOFF LLEESSSS CCOOMMMMAANNDDSS[m
+[32m+[m
+[32m+[m[32m      Commands marked with * may be preceded by a number, _N.[m
+[32m+[m[32m      Notes in parentheses indicate the behavior if _N is given.[m
+[32m+[m[32m      A key preceded by a caret indicates the Ctrl key; thus ^K is ctrl-K.[m
+[32m+[m
+[32m+[m[32m  h  H                 Display this help.[m
+[32m+[m[32m  q  :q  Q  :Q  ZZ     Exit.[m
+[32m+[m[32m ---------------------------------------------------------------------------[m
+[32m+[m
+[32m+[m[32m                           MMOOVVIINNGG[m
+[32m+[m
+[32m+[m[32m  e  ^E  j  ^N  CR  *  Forward  one line   (or _N lines).[m
+[32m+[m[32m  y  ^Y  k  ^K  ^P  *  Backward one line   (or _N lines).[m
+[32m+[m[32m  f  ^F  ^V  SPACE  *  Forward  one window (or _N lines).[m
+[32m+[m[32m  b  ^B  ESC-v      *  Backward one window (or _N lines).[m
+[32m+[m[32m  z                 *  Forward  one window (and set window to _N).[m
+[32m+[m[32m  w                 *  Backward one window (and set window to _N).[m
+[32m+[m[32m  ESC-SPACE         *  Forward  one window, but don't stop at end-of-file.[m
+[32m+[m[32m  d  ^D             *  Forward  one half-window (and set half-window to _N).[m
+[32m+[m[32m  u  ^U             *  Backward one half-window (and set half-window to _N).[m
+[32m+[m[32m  ESC-)  RightArrow *  Right one half screen width (or _N positions).[m
+[32m+[m[32m  ESC-(  LeftArrow  *  Left  one half screen width (or _N positions).[m
+[32m+[m[32m  ESC-}  ^RightArrow   Right to last column displayed.[m
+[32m+[m[32m  ESC-{  ^LeftArrow    Left  to first column.[m
+[32m+[m[32m  F                    Forward forever; like "tail -f".[m
+[32m+[m[32m  ESC-F                Like F but stop when search pattern is found.[m
+[32m+[m[32m  r  ^R  ^L            Repaint screen.[m
+[32m+[m[32m  R                    Repaint screen, discarding buffered input.[m
+[1mdiff --git a/src/app/auth/login/page.tsx b/src/app/auth/login/page.tsx[m
+[1mindex bdaa415..c4c85d8 100644[m
+[1m--- a/src/app/auth/login/page.tsx[m
+[1m+++ b/src/app/auth/login/page.tsx[m
+[36m@@ -191,6 +191,38 @@[m [mexport default function LoginPage() {[m
+         console.log('Login: Using provided redirect:', redirectTo);[m
+       }[m
+       setAuthComplete(true);[m
+[32m+[m
+[32m+[m[32m      // After detecting workspaces in localStorage[m
+[32m+[m[32m      const workspaceKeys = Object.keys(localStorage);[m
+[32m+[m[32m      if (workspaceKeys.length > 0) {[m
+[32m+[m[32m        console.log('Login: Found workspace keys in localStorage:', workspaceKeys);[m
+[32m+[m[41m        [m
+[32m+[m[32m        // Extract the workspace ID from the keys[m
+[32m+[m[32m        const workspaceIdMatch = workspaceKeys.find(key => key.includes('workspace_sync_') || key.includes('workspace_activity_'));[m
+[32m+[m[32m        if (workspaceIdMatch) {[m
+[32m+[m[32m          const parts = workspaceIdMatch.split('_');[m
+[32m+[m[32m          const workspaceId = parts[parts.length - 1];[m
+[32m+[m[41m          [m
+[32m+[m[32m          if (workspaceId && workspaceId !== 'tabs') {[m
+[32m+[m[32m            console.log('Login: Setting workspace ID cookie from localStorage:', workspaceId);[m
+[32m+[m[41m            [m
+[32m+[m[32m            // Set the cookies to ensure middleware recognizes the workspace[m
+[32m+[m[32m            const expiryDate = new Date();[m
+[32m+[m[32m            expiryDate.setFullYear(expiryDate.getFullYear() + 1); // 1 year from now[m
+[32m+[m[41m            [m
+[32m+[m[32m            document.cookie = `hasCompletedSetup=true; path=/; expires=${expiryDate.toUTCString()}; SameSite=Lax`;[m
+[32m+[m[32m            document.cookie = `currentWorkspaceId=${workspaceId}; path=/; expires=${expiryDate.toUTCString()}; SameSite=Lax`;[m
+[32m+[m[41m            [m
+[32m+[m[32m            // Also set in localStorage for redundancy[m
+[32m+[m[32m            localStorage.setItem('currentWorkspaceId', workspaceId);[m
+[32m+[m[41m            [m
+[32m+[m[32m            console.log('Login: Cookies set for workspace:', {[m
+[32m+[m[32m              workspaceId,[m
+[32m+[m[32m              cookies: document.cookie[m
+[32m+[m[32m            });[m
+[32m+[m[32m          }[m
+[32m+[m[32m        }[m
+[32m+[m[32m      }[m
+     } catch (error: unknown) {[m
+       // Extract error message from Firebase[m
+       let errorMessage = 'An error occurred during sign in';[m
+[1mdiff --git a/src/components/dashboard/PaymentDialog.tsx b/src/components/dashboard/PaymentDialog.tsx[m
+[1mindex 2f97899..e7fd314 100644[m
+[1m--- a/src/components/dashboard/PaymentDialog.tsx[m
+[1m+++ b/src/components/dashboard/PaymentDialog.tsx[m
+[36m@@ -18,13 +18,18 @@[m [mimport { CreditCard, DollarSign, AlertTriangle, CheckCircle } from 'lucide-react[m
+ interface PaymentDialogProps {[m
+   isOpen: boolean;[m
+   onClose: () => void;[m
+[31m-  expense: Expense;[m
+[32m+[m[32m  expense: Expense | null;[m
+ }[m
+ [m
+ export function PaymentDialog({ isOpen, onClose, expense }: PaymentDialogProps) {[m
+   const { addPaymentToExpense, addGiftToContributor, contributors, expenses } = useWedding();[m
+   const { toast } = useToast();[m
+   [m
+[32m+[m[32m  // Early return if no expense is provided[m
+[32m+[m[32m  if (!expense) {[m
+[32m+[m[32m    return null;[m
+[32m+[m[32m  }[m
+[32m+[m[41m  [m
+   // Form state[m
+   const [contributorId, setContributorId] = useState('');[m
+   const [amount, setAmount] = useState('');[m
+[1mdiff --git a/src/context/WorkspaceContext.tsx b/src/context/WorkspaceContext.tsx[m
+[1mindex db6536d..713ff84 100644[m
+[1m--- a/src/context/WorkspaceContext.tsx[m
+[1m+++ b/src/context/WorkspaceContext.tsx[m
+[36m@@ -580,6 +580,33 @@[m [mexport const WorkspaceProvider = ({ children }: { children: ReactNode }) => {[m
+     }[m
+   }, [currentWorkspaceId, registerTabActivity]);[m
+   [m
+[32m+[m[32m  // In the useEffect where workspaces are updated[m
+[32m+[m[32m  useEffect(() => {[m
+[32m+[m[32m    if (workspaces.length > 0 && !currentWorkspaceId) {[m
+[32m+[m[32m      console.log('WorkspaceContext: Found workspaces but no currentWorkspaceId set, setting from first workspace');[m
+[32m+[m[41m      [m
+[32m+[m[32m      // Set the first workspace as current if none is selected[m
+[32m+[m[32m      const firstWorkspace = workspaces[0];[m
+[32m+[m[32m      setCurrentWorkspaceId(firstWorkspace.id);[m
+[32m+[m[41m      [m
+[32m+[m[32m      // Also set cookies for middleware[m
+[32m+[m[32m      try {[m
+[32m+[m[32m        const expiryDate = new Date();[m
+[32m+[m[32m        expiryDate.setFullYear(expiryDate.getFullYear() + 1); // 1 year from now[m
+[32m+[m[41m        [m
+[32m+[m[32m        document.cookie = `hasCompletedSetup=true; path=/; expires=${expiryDate.toUTCString()}; SameSite=Lax`;[m
+[32m+[m[32m        document.cookie = `currentWorkspaceId=${firstWorkspace.id}; path=/; expires=${expiryDate.toUTCString()}; SameSite=Lax`;[m
+[32m+[m[41m        [m
+[32m+[m[32m        console.log('WorkspaceContext: Set cookies for workspace:', {[m
+[32m+[m[32m          workspaceId: firstWorkspace.id,[m
+[32m+[m[32m          cookies: document.cookie[m
+[32m+[m[32m        });[m
+[32m+[m[32m      } catch (error) {[m
+[32m+[m[32m        console.error('Error setting workspace cookies:', error);[m
+[32m+[m[32m      }[m
+[32m+[m[32m    }[m
+[32m+[m[32m  }, [workspaces, currentWorkspaceId]);[m
+[32m+[m[41m  [m
+   // Context value[m
+   const value = {[m
+     workspaces,[m
+[1mdiff --git a/src/lib/wizard-utils.ts b/src/lib/wizard-utils.ts[m
+[1mindex 8fc6943..29b0966 100644[m
+[1m--- a/src/lib/wizard-utils.ts[m
+[1m+++ b/src/lib/wizard-utils.ts[m
+[36m@@ -28,16 +28,47 @@[m [mexport const hasCompletedSetup = (): boolean => {[m
+   [m
