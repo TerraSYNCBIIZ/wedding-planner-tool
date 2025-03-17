@@ -1,0 +1,63 @@
+# Comprehensive Netlify configuration for Next.js applications
+# This configuration addresses common issues with Next.js on Netlify
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+  
+# Install the Netlify Next.js plugin
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Disable JavaScript bundling - critical for fixing 404 errors on static assets
+[build.processing.js]
+  bundle = false
+  minify = true
+
+# Ensure CSS processing doesn't interfere with Next.js
+[build.processing.css]
+  bundle = false
+  minify = true
+
+# Important environment variables
+[build.environment]
+  NETLIFY_NEXT_PLUGIN_SKIP = "false"
+  NETLIFY_USE_NEXT_SERVER_SIDE_RENDERING = "true"
+  NODE_VERSION = "18"
+
+# Handle fonts and static assets properly
+[[headers]]
+  for = "/_next/static/media/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/_next/static/chunks/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Edge Functions for middleware support
+[functions]
+  node_bundler = "esbuild"
+  
+# Critical redirects for SPA behavior
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = false
+  conditions = {Role = ["anonymous"]}
+
+# Redirect for dynamic routes and client-side navigation
+[[redirects]]
+  from = "/_next/static/*"
+  to = "/_next/static/:splat"
+  status = 200
+  force = false
+
+# Fallback for static asset 404s
+[[redirects]]
+  from = "/_next/*"
+  to = "/_next/:splat"
+  status = 200
+  force = false 
