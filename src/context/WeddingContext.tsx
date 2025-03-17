@@ -34,12 +34,14 @@ import type {
   GiftAllocation,
   DashboardStats,
   ExpenseCategory,
-  PaymentAllocation
+  PaymentAllocation,
+  ContributorGift
 } from '../types';
 import { calculatePaidAmount, calculateRemainingAmount } from '../lib/excel-utils';
 import { testFirestoreConnection } from '../lib/test-firebase';
 import { useAuth } from './AuthContext';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { useWorkspace } from './WorkspaceContext';
+import { doc, getDoc, updateDoc, writeBatch, Timestamp } from 'firebase/firestore';
 import { firestore } from '../lib/firebase';
 
 // Define the context type
@@ -51,6 +53,13 @@ interface WeddingContextType {
   customCategories: CustomCategory[];
   settings: Settings;
   isLoading: boolean;
+  weddingData: {
+    coupleNames: string;
+    date: string | null;
+    location: string;
+    guestCount: number;
+    budget: number;
+  } | null;
   
   // Expense functions
   addNewExpense: (expense: Omit<Expense, 'id' | 'createdAt' | 'updatedAt' | 'paymentAllocations'>) => Promise<void>;
@@ -63,9 +72,18 @@ interface WeddingContextType {
   removePaymentFromExpense: (expenseId: string, paymentId: string) => Promise<void>;
   
   // Contributor functions
-  addNewContributor: (name: string) => Promise<void>;
-  updateExistingContributor: (id: string, name: string) => Promise<void>;
+  addNewContributor: (name: string, notes?: string) => Promise<void>;
+  updateExistingContributor: (id: string, data: Partial<Contributor>) => Promise<void>;
   removeContributor: (id: string) => Promise<void>;
+  
+  // Contributor gift functions
+  addGiftToContributor: (
+    contributorId: string, 
+    giftData: Omit<ContributorGift, 'id' | 'contributorId' | 'allocations'>,
+    allocations?: Array<{ expenseId: string, amount: number }>
+  ) => Promise<{ gift: ContributorGift; allocations: GiftAllocation[] } | undefined>;
+  updateContributorGift: (contributorId: string, giftId: string, data: Partial<ContributorGift>) => Promise<void>;
+  removeContributorGift: (contributorId: string, giftId: string) => Promise<void>;
   
   // Gift functions
   addNewGift: (gift: Omit<Gift, 'id' | 'allocations'>) => Promise<void>;
@@ -96,12 +114,44 @@ const WeddingContext = createContext<WeddingContextType | undefined>(undefined);
 // Provider component
 export const WeddingProvider = ({ children }: { children: ReactNode }) => {
   const { user, loading: authLoading } = useAuth();
+  const { currentWorkspaceId, workspaces } = useWorkspace();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [gifts, setGifts] = useState<Gift[]>([]);
   const [contributors, setContributors] = useState<Contributor[]>([]);
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
   const [settings, setSettings] = useState<Settings>({ currency: 'USD' });
   const [isLoading, setIsLoading] = useState(true);
+
+  // Add additional code here for fetching the wedding details
+  const currentWorkspace = workspaces.find(w => w.id === currentWorkspaceId);
+  
+  // Add debugging for wedding data
+  useEffect(() => {
+    console.log('Current workspace:', currentWorkspace);
+    console.log('Workspace wedding date:', currentWorkspace?.weddingDate);
+    console.log('Workspace couple names:', currentWorkspace?.coupleNames);
+    console.log('Workspace location:', currentWorkspace?.location);
+  }, [currentWorkspace]);
+
+  // Updated wedding data parsing to handle Timestamp correctly
+  const weddingData = currentWorkspace ? {
+    coupleNames: currentWorkspace.coupleNames || 'Your Wedding',
+    date: currentWorkspace.weddingDate 
+      ? (typeof currentWorkspace.weddingDate === 'string' 
+        ? currentWorkspace.weddingDate 
+        : (currentWorkspace.weddingDate as any).toDate?.() 
+          ? (currentWorkspace.weddingDate as any).toDate().toISOString() 
+          : null)
+      : null,
+    location: currentWorkspace.location || '',
+    guestCount: 0, // You can add this to the workspace model later
+    budget: expenses.reduce((sum, exp) => sum + exp.totalAmount, 0)
+  } : null;
+  
+  // Log the formatted wedding data
+  useEffect(() => {
+    console.log('Formatted wedding data:', weddingData);
+  }, [weddingData]);
 
   // Fetch data function (extracted to be reusable)
   const fetchData = useCallback(async () => {
@@ -125,6 +175,11 @@ export const WeddingProvider = ({ children }: { children: ReactNode }) => {
           console.log('No authenticated user');
           return;
         }
+
+        if (!currentWorkspaceId) {
+          console.log('No workspace selected');
+          return;
+        }
         
         // Test Firestore connection first
         console.log('Testing Firestore connection...');
@@ -134,10 +189,10 @@ export const WeddingProvider = ({ children }: { children: ReactNode }) => {
           throw new Error('Firestore connection test failed');
         }
         
-        // Try to fetch data from Firestore for the authenticated user
-        console.log('Fetching data from Firestore for user:', user.uid);
+        // Try to fetch data from Firestore for the current workspace
+        console.log('Fetching data from Firestore for workspace:', currentWorkspaceId);
         
-        // Fetch data for the authenticated user
+        // Fetch data for the current workspace
         [
           expensesData,
           giftsData,
@@ -145,11 +200,11 @@ export const WeddingProvider = ({ children }: { children: ReactNode }) => {
           categoriesData,
           settingsData
         ] = await Promise.all([
-          getAllExpenses(user.uid),
-          getAllGifts(user.uid),
-          getAllContributors(user.uid),
-          getAllCustomCategories(user.uid),
-          getSettings(user.uid)
+          getAllExpenses(currentWorkspaceId),
+          getAllGifts(currentWorkspaceId),
+          getAllContributors(currentWorkspaceId),
+          getAllCustomCategories(currentWorkspaceId),
+          getSettings(currentWorkspaceId)
         ]);
         console.log('Firestore data fetched successfully:', {
           expenses: expensesData.length,
@@ -172,7 +227,7 @@ export const WeddingProvider = ({ children }: { children: ReactNode }) => {
       console.error('Error fetching data:', error);
       setIsLoading(false);
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, currentWorkspaceId]);
 
   // Initial data fetch
   useEffect(() => {
@@ -181,38 +236,36 @@ export const WeddingProvider = ({ children }: { children: ReactNode }) => {
 
   // Expense functions
   const addNewExpense = async (expenseData: Omit<Expense, 'id' | 'createdAt' | 'updatedAt' | 'paymentAllocations'>) => {
-    if (!user) return;
+    if (!user || !currentWorkspaceId) return;
     try {
-      const newExpense = await addExpense({
+      const newExpense = await addExpense(currentWorkspaceId, {
         ...expenseData,
         paymentAllocations: []
-      }, user.uid);
+      });
       setExpenses(prev => [...prev, newExpense]);
     } catch (error) {
       console.error('Error adding expense:', error);
-      throw error;
     }
   };
 
   const updateExistingExpense = async (id: string, data: Partial<Expense>) => {
-    if (!user) return;
+    if (!user || !currentWorkspaceId) return;
     try {
-      await updateExpense(id, data, user.uid);
+      await updateExpense(currentWorkspaceId, id, data);
       setExpenses(prev => 
         prev.map(expense => 
-          expense.id === id ? { ...expense, ...data, updatedAt: new Date().toISOString() } : expense
+          expense.id === id ? { ...expense, ...data } : expense
         )
       );
     } catch (error) {
       console.error('Error updating expense:', error);
-      throw error;
     }
   };
 
   const removeExpense = async (id: string) => {
-    if (!user) return;
+    if (!user || !currentWorkspaceId) return;
     try {
-      await deleteExpense(id, user.uid);
+      await deleteExpense(currentWorkspaceId, id);
       setExpenses(prev => prev.filter(expense => expense.id !== id));
     } catch (error) {
       console.error('Error deleting expense:', error);
@@ -222,7 +275,7 @@ export const WeddingProvider = ({ children }: { children: ReactNode }) => {
 
   // Payment allocation functions
   const addPaymentToExpense = async (expenseId: string, payment: Omit<PaymentAllocation, 'id'>) => {
-    if (!user) return;
+    if (!user || !currentWorkspaceId) return;
     try {
       // Find the expense
       const expense = expenses.find(e => e.id === expenseId);
@@ -258,7 +311,7 @@ export const WeddingProvider = ({ children }: { children: ReactNode }) => {
         return cleanPayment;
       });
       
-      const expenseRef = doc(firestore, `users/${user.uid}/expenses`, expenseId);
+      const expenseRef = doc(firestore, `users/${currentWorkspaceId}/expenses`, expenseId);
       await updateDoc(expenseRef, {
         paymentAllocations: firestorePayments,
         updatedAt: new Date().toISOString()
@@ -279,7 +332,7 @@ export const WeddingProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updatePaymentAllocation = async (expenseId: string, paymentId: string, data: Partial<PaymentAllocation>) => {
-    if (!user) return;
+    if (!user || !currentWorkspaceId) return;
     try {
       // Find the expense
       const expense = expenses.find(e => e.id === expenseId);
@@ -311,7 +364,7 @@ export const WeddingProvider = ({ children }: { children: ReactNode }) => {
         return cleanPayment;
       });
       
-      const expenseRef = doc(firestore, `users/${user.uid}/expenses`, expenseId);
+      const expenseRef = doc(firestore, `users/${currentWorkspaceId}/expenses`, expenseId);
       await updateDoc(expenseRef, {
         paymentAllocations: firestorePayments,
         updatedAt: new Date().toISOString()
@@ -332,7 +385,7 @@ export const WeddingProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const removePaymentFromExpense = async (expenseId: string, paymentId: string) => {
-    if (!user) return;
+    if (!user || !currentWorkspaceId) return;
     try {
       // Find the expense
       const expense = expenses.find(e => e.id === expenseId);
@@ -362,7 +415,7 @@ export const WeddingProvider = ({ children }: { children: ReactNode }) => {
         return cleanPayment;
       });
       
-      const expenseRef = doc(firestore, `users/${user.uid}/expenses`, expenseId);
+      const expenseRef = doc(firestore, `users/${currentWorkspaceId}/expenses`, expenseId);
       await updateDoc(expenseRef, {
         paymentAllocations: firestorePayments,
         updatedAt: new Date().toISOString()
@@ -383,36 +436,45 @@ export const WeddingProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Contributor functions
-  const addNewContributor = async (name: string) => {
-    if (!user) return;
+  const addNewContributor = async (name: string, notes?: string) => {
+    if (!user || !currentWorkspaceId) return;
     try {
-      const newContributor = await addContributor(name, user.uid);
+      const contributor: Omit<Contributor, 'id'> = {
+        name,
+        totalGiftAmount: 0,
+        gifts: []
+      };
+      
+      // Only add notes field if it's not undefined
+      if (notes !== undefined) {
+        contributor.notes = notes;
+      }
+      
+      const newContributor = await addContributor(currentWorkspaceId, contributor);
       setContributors(prev => [...prev, newContributor]);
     } catch (error) {
       console.error('Error adding contributor:', error);
-      throw error;
     }
   };
 
-  const updateExistingContributor = async (id: string, name: string) => {
-    if (!user) return;
+  const updateExistingContributor = async (id: string, data: Partial<Contributor>) => {
+    if (!user || !currentWorkspaceId) return;
     try {
-      await updateContributor(id, name, user.uid);
+      await updateContributor(currentWorkspaceId, id, data);
       setContributors(prev => 
         prev.map(contributor => 
-          contributor.id === id ? { ...contributor, name } : contributor
+          contributor.id === id ? { ...contributor, ...data } : contributor
         )
       );
     } catch (error) {
       console.error('Error updating contributor:', error);
-      throw error;
     }
   };
 
   const removeContributor = async (id: string) => {
-    if (!user) return;
+    if (!user || !currentWorkspaceId) return;
     try {
-      await deleteContributor(id, user.uid);
+      await deleteContributor(currentWorkspaceId, id);
       setContributors(prev => prev.filter(contributor => contributor.id !== id));
     } catch (error) {
       console.error('Error deleting contributor:', error);
@@ -420,22 +482,267 @@ export const WeddingProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Gift functions
-  const addNewGift = async (giftData: Omit<Gift, 'id' | 'allocations'>) => {
-    if (!user) return;
+  // Contributor gift functions
+  const addGiftToContributor = async (
+    contributorId: string, 
+    giftData: Omit<ContributorGift, 'id' | 'contributorId' | 'allocations'>,
+    allocations?: Array<{ expenseId: string, amount: number }>
+  ) => {
+    if (!user || !currentWorkspaceId) return;
     try {
-      const newGift = await addGift(giftData, user.uid);
-      setGifts(prev => [...prev, newGift]);
+      const contributorRef = doc(firestore, 'workspaces', currentWorkspaceId, 'contributors', contributorId);
+      const contributorSnap = await getDoc(contributorRef);
+      
+      if (contributorSnap.exists()) {
+        const contributor = contributorSnap.data() as Contributor;
+        const giftId = generateId();
+        const newGift: ContributorGift = {
+          id: giftId,
+          contributorId,
+          ...giftData,
+          allocations: []
+        };
+        
+        const gifts = contributor.gifts || [];
+        const updatedGifts = [...gifts, newGift];
+        const totalGiftAmount = (contributor.totalGiftAmount || 0) + giftData.amount;
+        
+        // Create a batch to handle the gift and all allocations in one transaction
+        const batch = writeBatch(firestore);
+        
+        // Update the contributor with the new gift
+        batch.update(contributorRef, {
+          gifts: updatedGifts,
+          totalGiftAmount
+        });
+        
+        // Handle allocations if provided
+        const giftAllocations: GiftAllocation[] = [];
+        if (allocations && allocations.length > 0) {
+          // Create each allocation
+          for (const allocation of allocations) {
+            const { expenseId, amount } = allocation;
+            const allocationId = generateId();
+            
+            const allocationData: GiftAllocation = {
+              id: allocationId,
+              giftId,
+              expenseId,
+              amount
+            };
+            
+            // Add to local array to update the gift
+            giftAllocations.push(allocationData);
+            
+            // Create allocation document in Firestore
+            const allocationRef = doc(firestore, `workspaces/${currentWorkspaceId}/giftAllocations`, allocationId);
+            batch.set(allocationRef, {
+              ...allocationData,
+              createdAt: Timestamp.now(),
+              updatedAt: Timestamp.now()
+            });
+            
+            // Also create a payment allocation in the expense to link the gift allocation
+            const expenseRef = doc(firestore, `workspaces/${currentWorkspaceId}/expenses`, expenseId);
+            const expenseSnap = await getDoc(expenseRef);
+            
+            if (expenseSnap.exists()) {
+              const expenseData = expenseSnap.data() as Expense;
+              const paymentAllocations = expenseData.paymentAllocations || [];
+              
+              // Create a new payment allocation from the gift
+              const paymentId = generateId();
+              const paymentAllocation = {
+                id: paymentId,
+                contributorId: contributorId,
+                amount: amount,
+                date: giftData.date,
+                notes: `Gift allocation from ${contributor.name}'s gift of $${giftData.amount.toFixed(2)}`,
+                giftId: giftId,
+                allocationId: allocationId
+              };
+              
+              // Add the payment allocation to the expense
+              batch.update(expenseRef, {
+                paymentAllocations: [...paymentAllocations, paymentAllocation],
+                updatedAt: Timestamp.now()
+              });
+            }
+          }
+          
+          // Update the gift with allocations
+          if (giftAllocations.length > 0) {
+            // Update the gift in the contributor's gifts array
+            const updatedGiftsWithAllocations = updatedGifts.map(g => 
+              g.id === giftId ? { ...g, allocations: giftAllocations } : g
+            );
+            
+            batch.update(contributorRef, {
+              gifts: updatedGiftsWithAllocations
+            });
+          }
+        }
+        
+        // Commit all changes
+        await batch.commit();
+        
+        // Update state with the new gift and allocations
+        setContributors(prev => 
+          prev.map(c => 
+            c.id === contributorId 
+              ? { 
+                  ...c, 
+                  gifts: updatedGifts.map(g => 
+                    g.id === giftId 
+                      ? { ...g, allocations: giftAllocations } 
+                      : g
+                  ), 
+                  totalGiftAmount 
+                } 
+              : c
+          )
+        );
+        
+        // Also update expenses state if we added payment allocations
+        if (allocations && allocations.length > 0) {
+          setExpenses(prev => 
+            prev.map(expense => {
+              const expenseAllocations = allocations.filter(a => a.expenseId === expense.id);
+              if (expenseAllocations.length === 0) return expense;
+              
+              // Add payment allocations for this expense
+              const paymentAllocations = [...expense.paymentAllocations];
+              
+              for (const allocation of expenseAllocations) {
+                const paymentId = generateId(); // This is just for the local state
+                
+                paymentAllocations.push({
+                  id: paymentId,
+                  contributorId: contributorId,
+                  amount: allocation.amount,
+                  date: giftData.date,
+                  notes: `Gift allocation from ${contributor.name}'s gift of $${giftData.amount.toFixed(2)}`,
+                  giftId: giftId
+                });
+              }
+              
+              return {
+                ...expense,
+                paymentAllocations,
+                updatedAt: new Date().toISOString()
+              };
+            })
+          );
+        }
+        
+        return { gift: newGift, allocations: giftAllocations };
+      }
     } catch (error) {
-      console.error('Error adding gift:', error);
+      console.error('Error adding gift to contributor:', error);
+      throw error;
+    }
+  };
+  
+  const updateContributorGift = async (contributorId: string, giftId: string, data: Partial<ContributorGift>) => {
+    if (!user || !currentWorkspaceId) return;
+    try {
+      const contributorRef = doc(firestore, 'workspaces', currentWorkspaceId, 'contributors', contributorId);
+      const contributorSnap = await getDoc(contributorRef);
+      
+      if (contributorSnap.exists()) {
+        const contributor = contributorSnap.data() as Contributor;
+        const gifts = contributor.gifts || [];
+        
+        const giftIndex = gifts.findIndex(g => g.id === giftId);
+        if (giftIndex === -1) return;
+        
+        const oldAmount = gifts[giftIndex].amount;
+        const newAmount = data.amount !== undefined ? data.amount : oldAmount;
+        const amountDifference = newAmount - oldAmount;
+        
+        const updatedGifts = gifts.map(g => 
+          g.id === giftId ? { ...g, ...data } : g
+        );
+        
+        const totalGiftAmount = (contributor.totalGiftAmount || 0) + amountDifference;
+        
+        await updateDoc(contributorRef, {
+          gifts: updatedGifts,
+          totalGiftAmount
+        });
+        
+        setContributors(prev => 
+          prev.map(c => 
+            c.id === contributorId 
+              ? { 
+                  ...c, 
+                  gifts: updatedGifts, 
+                  totalGiftAmount 
+                } 
+              : c
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Error updating contributor gift:', error);
+      throw error;
+    }
+  };
+  
+  const removeContributorGift = async (contributorId: string, giftId: string) => {
+    if (!user || !currentWorkspaceId) return;
+    try {
+      const contributorRef = doc(firestore, 'workspaces', currentWorkspaceId, 'contributors', contributorId);
+      const contributorSnap = await getDoc(contributorRef);
+      
+      if (contributorSnap.exists()) {
+        const contributor = contributorSnap.data() as Contributor;
+        const gifts = contributor.gifts || [];
+        
+        const giftToRemove = gifts.find(g => g.id === giftId);
+        if (!giftToRemove) return;
+        
+        const updatedGifts = gifts.filter(g => g.id !== giftId);
+        const totalGiftAmount = (contributor.totalGiftAmount || 0) - giftToRemove.amount;
+        
+        await updateDoc(contributorRef, {
+          gifts: updatedGifts,
+          totalGiftAmount
+        });
+        
+        setContributors(prev => 
+          prev.map(c => 
+            c.id === contributorId 
+              ? { 
+                  ...c, 
+                  gifts: updatedGifts, 
+                  totalGiftAmount 
+                } 
+              : c
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Error removing contributor gift:', error);
       throw error;
     }
   };
 
-  const updateExistingGift = async (id: string, data: Partial<Gift>) => {
-    if (!user) return;
+  // Gift functions
+  const addNewGift = async (giftData: Omit<Gift, 'id' | 'allocations'>) => {
+    if (!user || !currentWorkspaceId) return;
     try {
-      await updateGift(id, data, user.uid);
+      const newGift = await addGift(currentWorkspaceId, giftData);
+      setGifts(prev => [...prev, newGift]);
+    } catch (error) {
+      console.error('Error adding gift:', error);
+    }
+  };
+
+  const updateExistingGift = async (id: string, data: Partial<Gift>) => {
+    if (!user || !currentWorkspaceId) return;
+    try {
+      await updateGift(currentWorkspaceId, id, data);
       setGifts(prev => 
         prev.map(gift => 
           gift.id === id ? { ...gift, ...data } : gift
@@ -448,9 +755,9 @@ export const WeddingProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const removeGift = async (id: string) => {
-    if (!user) return;
+    if (!user || !currentWorkspaceId) return;
     try {
-      await deleteGift(id, user.uid);
+      await deleteGift(currentWorkspaceId, id);
       setGifts(prev => prev.filter(gift => gift.id !== id));
     } catch (error) {
       console.error('Error deleting gift:', error);
@@ -460,31 +767,33 @@ export const WeddingProvider = ({ children }: { children: ReactNode }) => {
 
   // Gift allocation functions
   const addNewGiftAllocation = async (allocation: Omit<GiftAllocation, 'id'>) => {
-    if (!user) return;
+    if (!user || !currentWorkspaceId) return;
     try {
-      const newAllocation = await addGiftAllocation(allocation, user.uid);
+      const { giftId, ...allocationData } = allocation;
+      const newAllocation = await addGiftAllocation(currentWorkspaceId, giftId, allocationData);
       
       // Update the gift with the new allocation
       setGifts(prev => 
-        prev.map(gift => 
-          gift.id === allocation.giftId
-            ? { 
-                ...gift, 
-                allocations: [...gift.allocations, newAllocation] 
-              }
-            : gift
-        )
+        prev.map(gift => {
+          if (gift.id === giftId) {
+            const allocations = gift.allocations || [];
+            return {
+              ...gift,
+              allocations: [...allocations, newAllocation]
+            };
+          }
+          return gift;
+        })
       );
     } catch (error) {
       console.error('Error adding gift allocation:', error);
-      throw error;
     }
   };
 
   const removeGiftAllocation = async (giftId: string, allocationId: string) => {
-    if (!user) return;
+    if (!user || !currentWorkspaceId) return;
     try {
-      await deleteGiftAllocation(giftId, allocationId, user.uid);
+      await deleteGiftAllocation(currentWorkspaceId, giftId, allocationId);
       
       // Update the gift by removing the allocation
       setGifts(prev => 
@@ -505,20 +814,23 @@ export const WeddingProvider = ({ children }: { children: ReactNode }) => {
 
   // Category functions
   const addNewCategory = async (name: string) => {
-    if (!user) return;
+    if (!user || !currentWorkspaceId) return;
     try {
-      const newCategory = await addCustomCategory(name, user.uid);
+      const category: Omit<CustomCategory, 'id'> = {
+        name,
+        createdAt: new Date().toISOString()
+      };
+      const newCategory = await addCustomCategory(currentWorkspaceId, category);
       setCustomCategories(prev => [...prev, newCategory]);
     } catch (error) {
       console.error('Error adding category:', error);
-      throw error;
     }
   };
 
   const removeCategory = async (id: string) => {
-    if (!user) return;
+    if (!user || !currentWorkspaceId) return;
     try {
-      await deleteCustomCategory(id, user.uid);
+      await deleteCustomCategory(currentWorkspaceId, id);
       setCustomCategories(prev => prev.filter(category => category.id !== id));
     } catch (error) {
       console.error('Error deleting category:', error);
@@ -528,13 +840,14 @@ export const WeddingProvider = ({ children }: { children: ReactNode }) => {
 
   // Settings functions
   const updateAppSettings = async (newSettings: Partial<Settings>) => {
-    if (!user) return;
+    if (!user || !currentWorkspaceId) return;
     try {
-      await updateSettings(newSettings, user.uid);
+      const currentSettings = settings || { currency: 'USD' };
+      const updatedSettings = { ...currentSettings, ...newSettings } as Settings;
+      await updateSettings(currentWorkspaceId, updatedSettings);
       setSettings(prev => ({ ...prev, ...newSettings }));
     } catch (error) {
       console.error('Error updating settings:', error);
-      throw error;
     }
   };
 
@@ -603,6 +916,7 @@ export const WeddingProvider = ({ children }: { children: ReactNode }) => {
     customCategories,
     settings,
     isLoading,
+    weddingData,
     addNewExpense,
     updateExistingExpense,
     removeExpense,
@@ -612,6 +926,9 @@ export const WeddingProvider = ({ children }: { children: ReactNode }) => {
     addNewContributor,
     updateExistingContributor,
     removeContributor,
+    addGiftToContributor,
+    updateContributorGift,
+    removeContributorGift,
     addNewGift,
     updateExistingGift,
     removeGift,

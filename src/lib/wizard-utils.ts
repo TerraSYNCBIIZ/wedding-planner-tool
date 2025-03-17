@@ -14,16 +14,20 @@ export const hasCompletedSetup = (): boolean => {
   const hasWeddingIdCookie = document.cookie.includes('currentWeddingId=');
   const weddingId = localStorage.getItem('currentWeddingId');
   
+  // Also check if there's a workspace ID cookie, which means the user has access to a workspace
+  const hasWorkspaceIdCookie = document.cookie.includes('currentWorkspaceId=');
+  
   // Debug info
   console.log('hasCompletedSetup check:', { 
     hasSetupCookie,
     hasWeddingIdCookie,
     weddingId,
+    hasWorkspaceIdCookie,
     cookies: document.cookie
   });
   
   // If any of these are true, consider setup as completed
-  return hasSetupCookie || hasWeddingIdCookie || Boolean(weddingId);
+  return hasSetupCookie || hasWeddingIdCookie || Boolean(weddingId) || hasWorkspaceIdCookie;
 };
 
 /**

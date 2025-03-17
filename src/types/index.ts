@@ -17,10 +17,23 @@ export type PaymentStatus =
   | 'unpaid' 
   | 'scheduled';
 
-// Define a contributor (person paying for something)
+// Define a contributor (person paying for something or giving a gift)
 export interface Contributor {
   id: string;
   name: string;
+  totalGiftAmount?: number;  // Total amount of gifts given by this contributor
+  gifts?: ContributorGift[]; // Gifts given by this contributor
+  notes?: string;          // Any additional notes about the contributor
+}
+
+// Define a gift given by a contributor
+export interface ContributorGift {
+  id: string;
+  contributorId: string;
+  amount: number;
+  date: string; // ISO date string
+  notes?: string;
+  allocations: GiftAllocation[];
 }
 
 // Define a payment allocation
@@ -30,6 +43,8 @@ export interface PaymentAllocation {
   amount: number;
   date: string; // ISO date string
   notes?: string;
+  giftId?: string; // ID of the gift if this payment is from a gift allocation
+  allocationId?: string; // ID of the gift allocation if this payment is from a gift allocation
 }
 
 // Define the main expense type
@@ -48,6 +63,7 @@ export interface Expense {
 }
 
 // Define a gift (money given that can be allocated to expenses)
+// This interface will be kept for backward compatibility but eventually phased out
 export interface Gift {
   id: string;
   fromPerson: string;

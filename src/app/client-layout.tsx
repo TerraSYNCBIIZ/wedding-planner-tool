@@ -26,8 +26,8 @@ export default function ClientLayout({
     <>
       <ParallaxBackground />
       <AuthProvider>
-        <WeddingProvider>
-          <WorkspaceProvider>
+        <WorkspaceProvider>
+          <WeddingProvider>
             <InvitationProvider>
               <ToastProvider>
                 <div className="flex flex-col min-h-screen">
@@ -60,8 +60,8 @@ export default function ClientLayout({
                 </div>
               </ToastProvider>
             </InvitationProvider>
-          </WorkspaceProvider>
-        </WeddingProvider>
+          </WeddingProvider>
+        </WorkspaceProvider>
       </AuthProvider>
     </>
   );

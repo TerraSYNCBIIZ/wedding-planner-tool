@@ -53,7 +53,6 @@ export function AppSidebar() {
     { href: '/', label: 'Dashboard', icon: Home },
     { href: '/expenses', label: 'Expenses', icon: DollarSign },
     { href: '/contributors', label: 'Contributors', icon: Users },
-    { href: '/gifts', label: 'Gifts', icon: Gift },
     { href: '/profile', label: 'Invitations', icon: Mail },
   ];
 

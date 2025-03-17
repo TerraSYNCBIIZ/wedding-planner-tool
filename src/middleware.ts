@@ -12,13 +12,16 @@ export function middleware(request: NextRequest) {
   const hasCompletedSetup = request.cookies.get('hasCompletedSetup')?.value;
   const currentWorkspaceId = request.cookies.get('currentWorkspaceId')?.value;
   
+  // If user has a workspace ID, they should be considered as having completed setup
+  const userHasCompletedSetup = hasCompletedSetup === 'true' || !!currentWorkspaceId;
+  
   // Check for migration status
   const needsMigration = request.cookies.get('needsMigration')?.value === 'true';
   
   console.log('Middleware: Processing request', { 
     path, 
     hasAuth: !!authToken,
-    hasCompletedSetup: hasCompletedSetup === 'true',
+    hasCompletedSetup: userHasCompletedSetup,
     currentWorkspaceId: currentWorkspaceId || 'none',
     needsMigration: needsMigration
   });
@@ -51,9 +54,9 @@ export function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/auth/login', request.url));
     }
     
-    // If user has completed setup, redirect to home/dashboard
-    if (hasCompletedSetup === 'true' && currentWorkspaceId) {
-      console.log('Middleware: User has completed setup, redirecting from setup wizard to dashboard');
+    // If user has completed setup or has a workspace, redirect to home/dashboard
+    if (userHasCompletedSetup) {
+      console.log('Middleware: User has completed setup or has a workspace, redirecting from setup wizard to dashboard');
       return NextResponse.redirect(new URL('/', request.url));
     }
     
@@ -70,8 +73,8 @@ export function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/auth/login', request.url));
     }
     
-    // If user has not completed setup, redirect to setup wizard
-    if (hasCompletedSetup !== 'true') {
+    // If user has not completed setup and has no workspace, redirect to setup wizard
+    if (!userHasCompletedSetup) {
       console.log('Middleware: Redirecting user who has not completed setup from workspace creation to setup wizard');
       return NextResponse.redirect(new URL('/setup-wizard', request.url));
     }
@@ -81,7 +84,7 @@ export function middleware(request: NextRequest) {
   }
   
   // For public routes, if the user is authenticated and has completed setup, redirect to home
-  if (publicRoutes.includes(path) && authToken && hasCompletedSetup === 'true') {
+  if (publicRoutes.includes(path) && authToken && userHasCompletedSetup) {
     console.log('Middleware: Redirecting authenticated user from public route to dashboard');
     return NextResponse.redirect(new URL('/', request.url));
   }
@@ -102,8 +105,8 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/auth/login', request.url));
   }
   
-  // For all non-setup-wizard routes, check if setup is completed
-  if (path !== '/setup-wizard' && hasCompletedSetup !== 'true') {
+  // For all non-setup-wizard routes, check if setup is completed or user has a workspace
+  if (path !== '/setup-wizard' && !userHasCompletedSetup) {
     console.log('Middleware: Redirecting user who has not completed setup to setup wizard');
     return NextResponse.redirect(new URL('/setup-wizard', request.url));
   }

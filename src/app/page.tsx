@@ -2,6 +2,7 @@
 
 import { useWedding } from '../context/WeddingContext';
 import { formatCurrency } from '../lib/excel-utils';
+import { calculatePaidAmount } from '../lib/excel-utils';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Button } from '../components/ui/Button';
@@ -9,6 +10,7 @@ import { WeddingDetails } from '@/components/dashboard/WeddingDetails';
 import { useAuth } from '@/context/AuthContext';
 import { UpcomingPayments } from '@/components/dashboard/UpcomingPayments';
 import { WorkspaceMembership } from '@/components/dashboard/WorkspaceMembership';
+import { QuickActionPanel } from '@/components/dashboard/QuickActionPanel';
 import { useRouter } from 'next/navigation';
 import { firestore } from '@/lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
@@ -21,6 +23,9 @@ export default function Home() {
   const [showFallback, setShowFallback] = useState(false);
   const [checkingSetup, setCheckingSetup] = useState(true);
   const router = useRouter();
+  
+  // Add state for quick action panel
+  const [quickActionExpanded, setQuickActionExpanded] = useState(false);
 
   // Check if the user has completed setup
   useEffect(() => {
@@ -70,7 +75,15 @@ export default function Home() {
         if (!membershipsSnapshot.empty) {
           console.log('Dashboard: User is a member of at least one wedding, marking setup as complete');
           // The user has at least one membership, they don't need setup
-          setHasCompletedSetup('member');
+          // Get the first workspace ID to use
+          const workspaceId = membershipsSnapshot.docs[0].data().workspaceId;
+          setHasCompletedSetup(workspaceId || 'member');
+          
+          // Also set the currentWorkspaceId cookie to ensure middleware recognizes the user has a workspace
+          const expiryDate = new Date();
+          expiryDate.setFullYear(expiryDate.getFullYear() + 1); // 1 year from now
+          document.cookie = `currentWorkspaceId=${workspaceId || 'member'}; path=/; expires=${expiryDate.toUTCString()}; SameSite=Lax`;
+          
           setCheckingSetup(false);
           return;
         }
@@ -138,7 +151,7 @@ export default function Home() {
             </Button>
           </div>
         
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
             <div className="card card-hover bg-white/90 rounded-xl shadow-md overflow-hidden border border-blue-200 transition-all duration-300">
               <div className="p-6 border-t-4 border-t-blue-800">
                 <h3 className="text-sm font-medium text-blue-700 uppercase tracking-wider mb-1">Total Budget</h3>
@@ -146,6 +159,15 @@ export default function Home() {
                 <p className="text-sm text-blue-600 mt-2">Sample wedding budget</p>
               </div>
             </div>
+
+            <div className="card card-hover bg-white/90 rounded-xl shadow-md overflow-hidden border border-blue-200 transition-all duration-300">
+              <div className="p-6 border-t-4 border-t-blue-600">
+                <h3 className="text-sm font-medium text-blue-700 uppercase tracking-wider mb-1">Total Contributions</h3>
+                <p className="text-4xl font-serif font-bold text-blue-800">{formatCurrency(5000)}</p>
+                <p className="text-sm text-blue-600 mt-2">Sample gifts received</p>
+              </div>
+            </div>
+
             <div className="card card-hover bg-white/90 rounded-xl shadow-md overflow-hidden border border-blue-200 transition-all duration-300">
               <div className="p-6 border-t-4 border-t-green-600">
                 <h3 className="text-sm font-medium text-blue-700 uppercase tracking-wider mb-1">Paid So Far</h3>
@@ -153,11 +175,200 @@ export default function Home() {
                 <p className="text-sm text-blue-600 mt-2">34% of total budget</p>
               </div>
             </div>
+
             <div className="card card-hover bg-white/90 rounded-xl shadow-md overflow-hidden border border-blue-200 transition-all duration-300">
               <div className="p-6 border-t-4 border-t-amber-500">
-                <h3 className="text-sm font-medium text-blue-700 uppercase tracking-wider mb-1">Remaining</h3>
+                <h3 className="text-sm font-medium text-blue-700 uppercase tracking-wider mb-1">Remaining Balance</h3>
                 <p className="text-4xl font-serif font-bold text-amber-600">{formatCurrency(7000)}</p>
                 <p className="text-sm text-blue-600 mt-2">Due within 3 months</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Financial Progress Bars in fallback UI */}
+          <div className="card bg-white/90 rounded-xl shadow-md p-6 border border-blue-200 mb-8">
+            <h3 className="text-xl font-serif font-bold text-blue-800 mb-4">Financial Progress</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left column - Summary metrics */}
+              <div>
+                {/* Budget Progress */}
+                <div className="mb-6">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium text-blue-700">Budget Paid Progress</span>
+                    <span className="text-sm font-medium text-blue-700">33%</span>
+                  </div>
+                  <div className="flex items-center text-xs text-blue-600 mb-1.5">
+                    <span>$3,500 paid of $10,500 total budget</span>
+                  </div>
+                  <div className="w-full h-3 bg-blue-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-green-500 rounded-full" style={{ width: '33%' }} />
+                  </div>
+                </div>
+                
+                {/* Contribution Usage */}
+                <div className="mb-6">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium text-blue-700">Contribution Usage</span>
+                    <span className="text-sm font-medium text-blue-700">70%</span>
+                  </div>
+                  <div className="flex items-center text-xs text-blue-600 mb-1.5">
+                    <span>$3,500 spent of $5,000 contributions</span>
+                  </div>
+                  <div className="w-full h-3 bg-blue-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500 rounded-full" style={{ width: '70%' }} />
+                  </div>
+                </div>
+                
+                {/* Funds Summary */}
+                <div>
+                  <h4 className="text-sm font-medium text-blue-700 mb-3">Funds Summary</h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="font-medium text-blue-800 mb-1">Available Funds</div>
+                      <div className="font-bold text-blue-900">$1,500</div>
+                      <div className="text-xs text-blue-600 mt-1">Unused contributions</div>
+                    </div>
+                    <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                      <div className="font-medium text-amber-800 mb-1">Remaining Budget</div>
+                      <div className="font-bold text-amber-900">$7,000</div>
+                      <div className="text-xs text-amber-600 mt-1">Still needs funding</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Right column - Category breakdown */}
+              <div>
+                <h4 className="text-sm font-medium text-blue-700 mb-3 flex items-center">
+                  <svg className="w-4 h-4 mr-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <title>Categories Icon</title>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                  </svg>
+                  Expense Categories
+                </h4>
+                
+                {/* Show total first */}
+                <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-medium text-blue-800">Total Budget</span>
+                    <span className="font-bold text-blue-800">$10,500</span>
+                  </div>
+                </div>
+                
+                {/* Then show categories */}
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  <div className="p-2 rounded border border-gray-100 bg-white">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm font-medium text-gray-800">Venue</span>
+                      <div className="flex items-center">
+                        <span className="text-xs font-medium text-gray-600 mr-1">48%</span>
+                        <span className="text-xs font-medium text-gray-800">$5,000</span>
+                      </div>
+                    </div>
+                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-purple-500 rounded-full" style={{ width: '48%' }} />
+                    </div>
+                  </div>
+                  <div className="p-2 rounded border border-gray-100 bg-white">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm font-medium text-gray-800">Catering</span>
+                      <div className="flex items-center">
+                        <span className="text-xs font-medium text-gray-600 mr-1">24%</span>
+                        <span className="text-xs font-medium text-gray-800">$2,500</span>
+                      </div>
+                    </div>
+                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-yellow-500 rounded-full" style={{ width: '24%' }} />
+                    </div>
+                  </div>
+                  <div className="p-2 rounded border border-gray-100 bg-white">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm font-medium text-gray-800">Photography</span>
+                      <div className="flex items-center">
+                        <span className="text-xs font-medium text-gray-600 mr-1">14%</span>
+                        <span className="text-xs font-medium text-gray-800">$1,500</span>
+                      </div>
+                    </div>
+                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-pink-500 rounded-full" style={{ width: '14%' }} />
+                    </div>
+                  </div>
+                  <div className="p-2 rounded border border-gray-100 bg-white">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm font-medium text-gray-800">Decorations</span>
+                      <div className="flex items-center">
+                        <span className="text-xs font-medium text-gray-600 mr-1">10%</span>
+                        <span className="text-xs font-medium text-gray-800">$1,000</span>
+                      </div>
+                    </div>
+                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-indigo-500 rounded-full" style={{ width: '10%' }} />
+                    </div>
+                  </div>
+                  <div className="p-2 rounded border border-gray-100 bg-white">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm font-medium text-gray-800">Attire</span>
+                      <div className="flex items-center">
+                        <span className="text-xs font-medium text-gray-600 mr-1">5%</span>
+                        <span className="text-xs font-medium text-gray-800">$500</span>
+                      </div>
+                    </div>
+                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-500 rounded-full" style={{ width: '5%' }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Upcoming Payments in fallback UI */}
+          <div className="bg-white shadow rounded-xl overflow-hidden border border-blue-100 mb-12">
+            <div className="p-4 border-b border-blue-200 flex justify-between items-center bg-gradient-to-r from-blue-50 to-white">
+              <h3 className="text-lg font-serif font-bold text-blue-800 flex items-center">
+                <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <title>Calendar Icon</title>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Upcoming Payments
+              </h3>
+              <Link href="/expenses" className="text-sm font-medium text-blue-700 hover:text-blue-900 transition-colors flex items-center">
+                View All
+                <svg className="h-4 w-4 ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <title>Arrow Right Icon</title>
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {/* Fallback UI with placeholder loading items */}
+              <div className="p-3">
+                <div className="animate-pulse">
+                  <div className="h-4 bg-blue-100 rounded w-3/4 mb-2" />
+                  <div className="flex items-center mt-1">
+                    <div className="h-3 bg-blue-100 rounded w-1/4 mr-2" />
+                    <div className="h-3 bg-blue-100 rounded w-1/3" />
+                  </div>
+                </div>
+              </div>
+              <div className="p-3">
+                <div className="animate-pulse">
+                  <div className="h-4 bg-blue-100 rounded w-2/3 mb-2" />
+                  <div className="flex items-center mt-1">
+                    <div className="h-3 bg-blue-100 rounded w-1/5 mr-2" />
+                    <div className="h-3 bg-blue-100 rounded w-1/4" />
+                  </div>
+                </div>
+              </div>
+              <div className="p-3">
+                <div className="animate-pulse">
+                  <div className="h-4 bg-blue-100 rounded w-1/2 mb-2" />
+                  <div className="flex items-center mt-1">
+                    <div className="h-3 bg-blue-100 rounded w-1/6 mr-2" />
+                    <div className="h-3 bg-blue-100 rounded w-1/4" />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -256,6 +467,8 @@ export default function Home() {
 
   return (
     <div className="container px-4 sm:px-6 py-8 max-w-7xl mx-auto">
+      <QuickActionPanel exportData={exportData} />
+      
       <div className="max-w-6xl mx-auto">
         {user && (
           <div className="mb-8">
@@ -263,7 +476,7 @@ export default function Home() {
           </div>
         )}
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
           <div className="card card-hover bg-white/90 rounded-xl shadow-md overflow-hidden border border-blue-200 transition-all duration-300">
             <div className="p-6 border-t-4 border-t-blue-800">
               <h3 className="text-sm font-medium text-blue-700 uppercase tracking-wider mb-1">Total Budget</h3>
@@ -271,6 +484,17 @@ export default function Home() {
               <p className="text-sm text-blue-600 mt-2">Wedding budget</p>
             </div>
           </div>
+          
+          <div className="card card-hover bg-white/90 rounded-xl shadow-md overflow-hidden border border-blue-200 transition-all duration-300">
+            <div className="p-6 border-t-4 border-t-blue-600">
+              <h3 className="text-sm font-medium text-blue-700 uppercase tracking-wider mb-1">Total Contributions</h3>
+              <p className="text-4xl font-serif font-bold text-blue-800">
+                {formatCurrency(contributors.reduce((sum, contributor) => sum + (contributor.totalGiftAmount || 0), 0))}
+              </p>
+              <p className="text-sm text-blue-600 mt-2">All gifts received</p>
+            </div>
+          </div>
+          
           <div className="card card-hover bg-white/90 rounded-xl shadow-md overflow-hidden border border-blue-200 transition-all duration-300">
             <div className="p-6 border-t-4 border-t-green-600">
               <h3 className="text-sm font-medium text-blue-700 uppercase tracking-wider mb-1">Paid So Far</h3>
@@ -278,18 +502,239 @@ export default function Home() {
               <p className="text-sm text-blue-600 mt-2">{stats.totalExpenses > 0 ? `${Math.round((stats.totalPaid / stats.totalExpenses) * 100)}% of total` : '0% of total'}</p>
             </div>
           </div>
+          
           <div className="card card-hover bg-white/90 rounded-xl shadow-md overflow-hidden border border-blue-200 transition-all duration-300">
             <div className="p-6 border-t-4 border-t-amber-500">
-              <h3 className="text-sm font-medium text-blue-700 uppercase tracking-wider mb-1">Remaining</h3>
+              <h3 className="text-sm font-medium text-blue-700 uppercase tracking-wider mb-1">Remaining Balance</h3>
               <p className="text-4xl font-serif font-bold text-amber-600">{formatCurrency(stats.totalRemaining)}</p>
               <p className="text-sm text-blue-600 mt-2">Outstanding balance</p>
             </div>
           </div>
         </div>
         
+        {/* Financial Progress Bars - Simplified and Improved */}
+        <div className="card bg-white/90 rounded-xl shadow-md p-6 border border-blue-200 mb-8">
+          <h3 className="text-xl font-serif font-bold text-blue-800 mb-4">Financial Progress</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Left column - Summary metrics */}
+            <div>
+              {/* Budget Progress */}
+              <div className="mb-6">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-blue-700">Budget Paid Progress</span>
+                  <span className="text-sm font-medium text-blue-700">
+                    {stats.totalExpenses > 0 ? `${Math.round((stats.totalPaid / stats.totalExpenses) * 100)}%` : '0%'}
+                  </span>
+                </div>
+                <div className="flex items-center text-xs text-blue-600 mb-1.5">
+                  <span>{formatCurrency(stats.totalPaid)} paid of {formatCurrency(stats.totalExpenses)} total budget</span>
+                </div>
+                <div className="w-full h-3 bg-blue-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-green-500 rounded-full"
+                    style={{ 
+                      width: stats.totalExpenses > 0 
+                        ? `${(stats.totalPaid / stats.totalExpenses) * 100}%` 
+                        : '0%' 
+                    }}
+                  />
+                </div>
+              </div>
+              
+              {/* Contribution Usage */}
+              <div className="mb-6">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-blue-700">Contribution Usage</span>
+                  <span className="text-sm font-medium text-blue-700">
+                    {
+                      (() => {
+                        const totalContributions = contributors.reduce((sum, contributor) => sum + (contributor.totalGiftAmount || 0), 0);
+                        return totalContributions > 0 
+                          ? `${Math.round((stats.totalPaid / totalContributions) * 100)}%` 
+                          : '0%';
+                      })()
+                    }
+                  </span>
+                </div>
+                <div className="flex items-center text-xs text-blue-600 mb-1.5">
+                  <span>{formatCurrency(stats.totalPaid)} spent of {formatCurrency(contributors.reduce((sum, contributor) => sum + (contributor.totalGiftAmount || 0), 0))} contributions</span>
+                </div>
+                <div className="w-full h-3 bg-blue-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-blue-500 rounded-full"
+                    style={{ 
+                      width: (() => {
+                        const totalContributions = contributors.reduce((sum, contributor) => sum + (contributor.totalGiftAmount || 0), 0);
+                        return totalContributions > 0 
+                          ? `${Math.min(100, (stats.totalPaid / totalContributions) * 100)}%` 
+                          : '0%';
+                      })()
+                    }}
+                  />
+                </div>
+              </div>
+              
+              {/* Funds Summary */}
+              <div>
+                <h4 className="text-sm font-medium text-blue-700 mb-3">Funds Summary</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="font-medium text-blue-800 mb-1">Available Funds</div>
+                    <div className="font-bold text-blue-900">
+                      {formatCurrency(
+                        Math.max(0, contributors.reduce((sum, contributor) => sum + (contributor.totalGiftAmount || 0), 0) - stats.totalPaid)
+                      )}
+                    </div>
+                    <div className="text-xs text-blue-600 mt-1">Unused contributions</div>
+                  </div>
+                  <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                    <div className="font-medium text-amber-800 mb-1">Remaining Budget</div>
+                    <div className="font-bold text-amber-900">
+                      {formatCurrency(stats.totalRemaining)}
+                    </div>
+                    <div className="text-xs text-amber-600 mt-1">Still needs funding</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Right column - Category breakdown */}
+            <div>
+              <h4 className="text-sm font-medium text-blue-700 mb-3 flex items-center">
+                <svg className="w-4 h-4 mr-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <title>Categories Icon</title>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                </svg>
+                Expense Categories
+              </h4>
+              
+              {/* Show total first */}
+              <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-medium text-blue-800">Total Budget</span>
+                  <span className="font-bold text-blue-800">{formatCurrency(stats.totalExpenses)}</span>
+                </div>
+              </div>
+              
+              {/* Then show categories */}
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                {Object.entries(stats.expensesByCategory)
+                  .sort(([, a], [, b]) => b - a) // Sort by amount descending
+                  .map(([category, amount]) => {
+                    const percentage = stats.totalExpenses > 0 
+                      ? Math.round((amount / stats.totalExpenses) * 100) 
+                      : 0;
+                    // Generate a color based on the category
+                    const colors = {
+                      'Venue': 'bg-purple-500',
+                      'Catering': 'bg-yellow-500',
+                      'Photography': 'bg-pink-500',
+                      'Attire': 'bg-blue-500',
+                      'Flowers': 'bg-green-500',
+                      'Music': 'bg-red-500',
+                      'Decorations': 'bg-indigo-500',
+                      'Transportation': 'bg-orange-500',
+                      'Accommodation': 'bg-teal-500'
+                    };
+                    const defaultColor = 'bg-gray-500';
+                    const color = colors[category as keyof typeof colors] || defaultColor;
+                    
+                    return (
+                      <div key={category} className="p-2 rounded border border-gray-100 bg-white">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-sm font-medium text-gray-800">
+                            {category}
+                          </span>
+                          <div className="flex items-center">
+                            <span className="text-xs font-medium text-gray-600 mr-1">{percentage}%</span>
+                            <span className="text-xs font-medium text-gray-800">{formatCurrency(amount)}</span>
+                          </div>
+                        </div>
+                        <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full ${color} rounded-full`}
+                            style={{ width: `${percentage}%` }} 
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          </div>
+        </div>
+        
         {/* Upcoming Payments */}
-        <div className="mb-12">
-          <UpcomingPayments />
+        <div className="bg-white shadow rounded-xl overflow-hidden border border-blue-100 mb-12">
+          <div className="p-4 border-b border-blue-200 flex justify-between items-center bg-gradient-to-r from-blue-50 to-white">
+            <h3 className="text-lg font-serif font-bold text-blue-800 flex items-center">
+              <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <title>Calendar Icon</title>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Upcoming Payments
+            </h3>
+            <Link href="/expenses" className="text-sm font-medium text-blue-700 hover:text-blue-900 transition-colors flex items-center">
+              View All
+              <svg className="h-4 w-4 ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <title>Arrow Right Icon</title>
+                <path d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {expenses.length > 0 ? (
+              expenses.filter(exp => 
+                calculatePaidAmount(exp) < exp.totalAmount && // Not fully paid
+                exp.dueDate && 
+                new Date(exp.dueDate) > new Date()
+              )
+              .sort((a, b) => 
+                new Date(a.dueDate || '').getTime() - new Date(b.dueDate || '').getTime()
+              )
+              .slice(0, 5) // Limit to 5 items
+              .map(expense => {
+                const totalPaid = calculatePaidAmount(expense);
+                const remainingAmount = expense.totalAmount - totalPaid;
+                const isPastDue = expense.dueDate && new Date(expense.dueDate) < new Date();
+                
+                return (
+                  <div key={expense.id} className="p-3 hover:bg-blue-50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <Link href={`/expenses/${expense.id}`} className="block">
+                          <h4 className="text-sm font-medium text-blue-900 truncate">{expense.title}</h4>
+                          <div className="flex items-center mt-1">
+                            <span className="text-xs text-blue-700 mr-2">
+                              {formatCurrency(remainingAmount)} remaining
+                            </span>
+                            {expense.dueDate && (
+                              <span className={`text-xs ${isPastDue ? 'text-red-600 font-semibold' : 'text-blue-600'}`}>
+                                Due {new Date(expense.dueDate).toLocaleDateString()}
+                              </span>
+                            )}
+                          </div>
+                        </Link>
+                      </div>
+                      <Link href={`/expenses/${expense.id}`} className="ml-2">
+                        <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
+                          Pay
+                        </span>
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="p-4 text-center text-blue-800 text-sm">
+                No upcoming payments found. 
+                <Link href="/expenses/new" className="font-medium text-blue-700 hover:text-blue-900 ml-1">
+                  Add an expense
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
         
         {/* Workspace Membership (new component) */}
@@ -298,104 +743,6 @@ export default function Home() {
             <WorkspaceMembership />
           </div>
         )}
-        
-        {/* Contributors & Gifts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-          <div className="card bg-white/90 rounded-xl shadow-md overflow-hidden border border-blue-200">
-            <div className="p-6 border-b border-blue-200 flex justify-between items-center bg-gradient-to-r from-blue-50 to-white">
-              <h2 className="text-xl font-serif font-bold text-blue-800">Contributors</h2>
-              <Link href="/contributors" className="text-sm font-medium text-blue-700 hover:text-blue-900 transition-colors flex items-center">
-                View All
-                <svg className="h-4 w-4 ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-labelledby="view-contributors-title">
-                  <title id="view-contributors-title">View all contributors</title>
-                  <path d="M5 12h14M12 5l7 7-7 7" />
-                </svg>
-              </Link>
-            </div>
-            <div className="p-6">
-              {contributors.length > 0 ? (
-                <div className="space-y-4">
-                  {contributors.map((contributor) => (
-                    <div key={contributor.id} className="flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
-                      <span className="font-medium text-blue-800">{contributor.name}</span>
-                      <Link href={`/contributors/${contributor.id}`} className="text-sm text-blue-700 hover:text-blue-900">View</Link>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-6">
-                  <p className="text-blue-600 mb-4">No contributors found</p>
-                  <Link 
-                    href="/contributors/new" 
-                    className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-blue-700 text-white hover:bg-blue-800 h-9 px-4"
-                  >
-                    Add Contributor
-                  </Link>
-                </div>
-              )}
-            </div>
-          </div>
-          
-          <div className="card bg-white/90 rounded-xl shadow-md overflow-hidden border border-blue-200">
-            <div className="p-6 border-b border-blue-200 flex justify-between items-center bg-gradient-to-r from-blue-50 to-white">
-              <h2 className="text-xl font-serif font-bold text-blue-800">Recent Gifts</h2>
-              <Link href="/gifts" className="text-sm font-medium text-blue-700 hover:text-blue-900 transition-colors flex items-center">
-                View All
-                <svg className="h-4 w-4 ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-labelledby="view-gifts-title">
-                  <title id="view-gifts-title">View all gifts</title>
-                  <path d="M5 12h14M12 5l7 7-7 7" />
-                </svg>
-              </Link>
-            </div>
-            <div className="p-6">
-              {gifts.length > 0 ? (
-                <div className="space-y-4">
-                  {gifts.map((gift) => (
-                    <div key={gift.id} className="flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
-                      <div>
-                        <span className="font-medium text-blue-800">{formatCurrency(gift.amount)}</span>
-                        <p className="text-sm text-blue-600">From: {gift.fromPerson}</p>
-                      </div>
-                      <Link href={`/gifts/${gift.id}`} className="text-sm text-blue-700 hover:text-blue-900">View</Link>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-6">
-                  <p className="text-blue-600 mb-4">No gifts recorded</p>
-                  <Link 
-                    href="/gifts/new" 
-                    className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-blue-700 text-white hover:bg-blue-800 h-9 px-4"
-                  >
-                    Add Gift
-                  </Link>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-        
-        {/* Export Data */}
-        <div className="card bg-white/90 rounded-xl shadow-md p-6 border border-blue-200 mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between">
-            <div className="mb-4 sm:mb-0">
-              <h3 className="text-xl font-serif font-bold text-blue-800 mb-2">Export Your Data</h3>
-              <p className="text-blue-600">Download all your wedding finance data as an Excel file</p>
-            </div>
-            <Button 
-              onClick={exportData} 
-              className="bg-blue-700 hover:bg-blue-800 text-white inline-flex items-center"
-            >
-              <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-labelledby="export-data-title">
-                <title id="export-data-title">Export data to Excel</title>
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              Export to Excel
-            </Button>
-          </div>
-        </div>
       </div>
     </div>
   );
