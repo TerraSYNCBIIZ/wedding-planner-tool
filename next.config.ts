@@ -17,8 +17,18 @@ const nextConfig: NextConfig = {
     domains: ['firebasestorage.googleapis.com'],
     unoptimized: false,
   },
+  // Configure font optimization
+  optimizeFonts: true,
+  // Improve static file handling
+  assetPrefix: process.env.NODE_ENV === 'production' ? undefined : undefined,
   poweredByHeader: false,
   reactStrictMode: true,
+  // Use stable configuration options
+  experimental: {
+    // These settings will help with serving static files
+    optimizeServerReact: true,
+    optimizePackageImports: ['lucide-react']
+  },
 };
 
 export default nextConfig;

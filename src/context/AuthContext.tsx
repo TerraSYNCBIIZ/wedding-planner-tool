@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { 
   getAuth, 
   onAuthStateChanged, 
@@ -8,7 +8,7 @@ import {
   createUserWithEmailAndPassword, 
   signOut as firebaseSignOut,
   updateProfile,
-  User,
+  type User,
   deleteUser as firebaseDeleteUser,
   EmailAuthProvider,
   reauthenticateWithCredential

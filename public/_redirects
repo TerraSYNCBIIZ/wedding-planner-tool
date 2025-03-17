@@ -1,0 +1,8 @@
+# Handle font files
+/*.woff2 /_next/static/media/:splat 301
+
+# Handle JS chunks
+/_next/static/chunks/*  /_next/static/chunks/:splat  200
+
+# Handle SPA client-side navigation
+/*  /index.html  200 
