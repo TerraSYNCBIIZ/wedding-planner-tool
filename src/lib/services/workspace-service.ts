@@ -664,4 +664,64 @@ export class WorkspaceService {
       unsubscribeMember();
     };
   }
+
+  /**
+   * Update workspace details
+   */
+  static async updateWorkspace(data: {
+    workspaceId: string;
+    requestingUserId: string;
+    coupleNames?: string;
+    weddingDate?: string | Date;
+    location?: string;
+  }): Promise<boolean> {
+    try {
+      // Use a transaction to ensure data consistency
+      return await runTransaction(firestore, async (transaction) => {
+        // Get the workspace
+        const workspaceRef = doc(firestore, 'workspaces', data.workspaceId);
+        const workspaceDoc = await transaction.get(workspaceRef);
+        
+        if (!workspaceDoc.exists()) {
+          throw new Error('Workspace not found');
+        }
+        
+        const workspaceData = workspaceDoc.data();
+        
+        // Verify the requesting user is the owner
+        if (workspaceData.ownerId !== data.requestingUserId) {
+          throw new Error('Only the workspace owner can update workspace details');
+        }
+        
+        // Prepare update data
+        const updateData: Record<string, any> = {
+          updatedAt: serverTimestamp()
+        };
+        
+        // Only include fields that are provided
+        if (data.coupleNames !== undefined) {
+          updateData.coupleNames = data.coupleNames;
+        }
+        
+        if (data.weddingDate !== undefined) {
+          // Convert Date object to string if needed
+          updateData.weddingDate = typeof data.weddingDate === 'string' 
+            ? data.weddingDate 
+            : data.weddingDate.toISOString();
+        }
+        
+        if (data.location !== undefined) {
+          updateData.location = data.location;
+        }
+        
+        // Update the workspace
+        transaction.update(workspaceRef, updateData);
+        
+        return true;
+      });
+    } catch (error) {
+      console.error('Error updating workspace details:', error);
+      return false;
+    }
+  }
 } 

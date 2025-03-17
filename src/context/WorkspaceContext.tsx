@@ -19,6 +19,11 @@ interface WorkspaceContextType {
     location?: string;
     bypassSetupCheck?: boolean;
   }) => Promise<string>;
+  updateWorkspace: (workspaceId: string, data: {
+    coupleNames?: string;
+    weddingDate?: string | Date;
+    location?: string;
+  }) => Promise<boolean>;
   deleteWorkspace: (workspaceId: string) => Promise<boolean>;
   
   // Member management
@@ -218,6 +223,42 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user, refreshWorkspaces]);
   
+  // Update workspace details
+  const updateWorkspace = useCallback(async (
+    workspaceId: string, 
+    data: {
+      coupleNames?: string;
+      weddingDate?: string | Date;
+      location?: string;
+    }
+  ): Promise<boolean> => {
+    if (!user) {
+      return false;
+    }
+    
+    try {
+      setIsLoading(true);
+      
+      const success = await WorkspaceService.updateWorkspace({
+        workspaceId,
+        requestingUserId: user.uid,
+        ...data
+      });
+      
+      if (success) {
+        // Refresh workspaces to get updated data
+        await refreshWorkspaces();
+      }
+      
+      return success;
+    } catch (error) {
+      console.error('Error updating workspace:', error);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, refreshWorkspaces]);
+  
   // Delete a workspace
   const deleteWorkspace = useCallback(async (workspaceId: string): Promise<boolean> => {
     if (!user) {
@@ -394,6 +435,7 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     setCurrentWorkspaceId,
     refreshWorkspaces,
     createWorkspace,
+    updateWorkspace,
     deleteWorkspace,
     removeMember,
     updateMemberRole,
