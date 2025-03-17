@@ -12,6 +12,7 @@ import { WorkspaceProvider } from '@/context/WorkspaceContext';
 import { initEmailJS } from '@/lib/emailjs-init';
 import { AppSidebar } from '@/components/ui/AppSidebar';
 import { ToastProvider } from '@/components/ui/toast';
+import { initApiBlocker } from '@/lib/blockedApiHosts';
 
 export default function ClientLayout({
   children,
@@ -21,9 +22,10 @@ export default function ClientLayout({
   const pathname = usePathname();
   const isLandingPage = pathname === '/landing';
 
-  // Initialize EmailJS
+  // Initialize EmailJS and API blocker
   useEffect(() => {
     initEmailJS();
+    initApiBlocker(); // Initialize the API blocker to prevent unwanted API calls
   }, []);
 
   return (
