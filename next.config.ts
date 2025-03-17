@@ -15,16 +15,10 @@ const nextConfig: NextConfig = {
   // Make sure images are properly optimized
   images: {
     domains: ['firebasestorage.googleapis.com'],
-    unoptimized: true, // Set to true for static export
+    unoptimized: false,
   },
   poweredByHeader: false,
   reactStrictMode: true,
-  // Use the export output configuration for static site generation
-  output: 'export',
-  // Set the base path if your site is served from a subdirectory
-  // basePath: '',
-  // Required to support static export
-  distDir: 'out',
 };
 
 export default nextConfig;
