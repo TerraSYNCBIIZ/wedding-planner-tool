@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { WeddingProvider } from "../context/WeddingContext";
 import Link from "next/link";
 import { BackButton } from "../components/ui/BackButton";
@@ -17,6 +18,9 @@ export default function ClientLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+  const isLandingPage = pathname === '/landing';
+
   // Initialize EmailJS
   useEffect(() => {
     initEmailJS();
@@ -31,32 +35,39 @@ export default function ClientLayout({
             <InvitationProvider>
               <ToastProvider>
                 <div className="flex flex-col min-h-screen">
-                  <AppSidebar />
-                  <main className="flex-grow py-8">
+                  {/* Only render the sidebar if not on the landing page */}
+                  {!isLandingPage && <AppSidebar />}
+                  
+                  {/* Main content */}
+                  <main className={`flex-grow ${!isLandingPage ? 'py-8' : ''}`}>
                     {children}
                   </main>
-                  <footer className="border-t py-6 bg-muted/30">
-                    <div className="container flex flex-col sm:flex-row justify-between items-center">
-                      <p className="text-sm text-muted-foreground">
-                        FinWed &copy; {new Date().getFullYear()}
-                      </p>
-                      <div className="flex items-center gap-4 mt-4 sm:mt-0">
-                        <BackButton />
-                        <Link
-                          href="/privacy"
-                          className="text-sm text-muted-foreground hover:text-foreground"
-                        >
-                          Privacy
-                        </Link>
-                        <Link
-                          href="/help"
-                          className="text-sm text-muted-foreground hover:text-foreground"
-                        >
-                          Help
-                        </Link>
+                  
+                  {/* Only render the global footer if not on the landing page */}
+                  {!isLandingPage && (
+                    <footer className="border-t py-6 bg-muted/30">
+                      <div className="container flex flex-col sm:flex-row justify-between items-center">
+                        <p className="text-sm text-muted-foreground">
+                          Wedding Finance Planner &copy; {new Date().getFullYear()}
+                        </p>
+                        <div className="flex items-center gap-4 mt-4 sm:mt-0">
+                          <BackButton />
+                          <Link
+                            href="/privacy"
+                            className="text-sm text-muted-foreground hover:text-foreground"
+                          >
+                            Privacy
+                          </Link>
+                          <Link
+                            href="/help"
+                            className="text-sm text-muted-foreground hover:text-foreground"
+                          >
+                            Help
+                          </Link>
+                        </div>
                       </div>
-                    </div>
-                  </footer>
+                    </footer>
+                  )}
                 </div>
               </ToastProvider>
             </InvitationProvider>

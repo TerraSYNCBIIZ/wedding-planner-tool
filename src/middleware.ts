@@ -42,7 +42,7 @@ export function middleware(request: NextRequest) {
   });
   
   // Public routes that don't require auth
-  const publicRoutes = ['/auth/login', '/auth/signup', '/auth/forgot-password', '/invitation/accept'];
+  const publicRoutes = ['/landing', '/auth/login', '/auth/signup', '/auth/forgot-password', '/invitation/accept'];
   
   // Check if current path matches any public route
   const isPublicRoute = publicRoutes.some(route => path === route || path.startsWith(`${route}/`));

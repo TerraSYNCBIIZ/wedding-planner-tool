@@ -31,8 +31,15 @@ export default function AuthLayout({
         {/* Logo/branding */}
         <div className="mb-8 text-center">
           <Link href="/" className="inline-flex items-center gap-2 group">
-            <span className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-800 to-blue-600 flex items-center justify-center text-white font-serif text-2xl shadow-md group-hover:shadow-lg transition-all duration-200">W</span>
-            <span className="font-serif font-bold text-2xl text-blue-900 group-hover:text-blue-700 transition-colors duration-200">Wedding Planner</span>
+            <div className="flex flex-col">
+              <span className="text-3xl font-serif text-primary tracking-tight flex items-center">
+                <span className="italic">Fin</span>Wed
+              </span>
+              <div className="h-px w-full bg-gradient-to-r from-primary/10 via-primary/40 to-primary/10 my-1" />
+              <span className="text-xs font-sans tracking-widest uppercase text-primary/70">
+                the financial tool for weddings and honeymoons
+              </span>
+            </div>
           </Link>
         </div>
         

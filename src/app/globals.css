@@ -102,16 +102,18 @@
   .parallax-bg::before {
     content: "";
     position: absolute;
-    top: -20%;
+    top: -100%;  /* Increased from -50% to -100% for much more vertical coverage */
     left: -10%;
     width: 120%;
-    height: 140%;
+    height: 300%;  /* Increased from 200% to 300% to significantly extend the background */
     background-image: url('/Blue Floral.jpg');
-    background-size: 100%; /* Changed from 160% to 100% to make it more zoomed out */
+    background-size: 110%;
     background-position: center;
     transform: translateY(calc(var(--scroll-y) * -1));
     will-change: transform;
     z-index: -2;
+    background-repeat: repeat-y;
+    background-attachment: fixed;  /* Added to help with coverage on longer pages */
   }
   
   /* Overlay to make background less vibrant */
@@ -122,8 +124,27 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(255, 255, 255, 0.65); /* More opaque overlay */
+    background-color: rgba(255, 255, 255, 0.65);
     z-index: -1;
+  }
+  
+  /* Extended background class for when user scrolls near bottom */
+  .extend-background::before {
+    height: 400% !important; /* Dramatically increased from 250% to 400% */
+    top: -200% !important; /* Moved further up from -100% to -200% */
+    background-size: 120% !important;
+  }
+  
+  /* Additional safety background to prevent any white space */
+  body::after {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #E6EBF4; /* Light blue backup color matching the floral pattern */
+    z-index: -20; /* Behind everything else */
   }
 }
 
