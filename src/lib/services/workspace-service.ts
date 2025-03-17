@@ -566,6 +566,10 @@ export class WorkspaceService {
     userId: string,
     onWorkspacesUpdate: (workspaces: WorkspaceDetails[]) => void
   ) {
+    // Generate a unique client ID to track this specific client instance
+    const clientId = `client_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    console.log(`Setting up workspace listeners for user: ${userId} (client: ${clientId})`);
+    
     // Track when the last update was processed to avoid excessive updates
     let lastUpdateTime = 0;
     let isProcessingUpdate = false;
@@ -579,27 +583,27 @@ export class WorkspaceService {
         return;
       }
       
-      // If less than 500ms since last update, debounce
+      // If less than 300ms since last update, debounce (reduced from 500ms)
       const now = Date.now();
-      if (now - lastUpdateTime < 500) {
+      if (now - lastUpdateTime < 300) {
         pendingUpdate = true;
         setTimeout(() => {
           if (pendingUpdate) {
             pendingUpdate = false;
             processWorkspacesUpdate();
           }
-        }, 500);
+        }, 300);
         return;
       }
       
       try {
         isProcessingUpdate = true;
-        console.log('Processing workspace update for user:', userId);
+        console.log(`Processing workspace update for user: ${userId} (client: ${clientId})`);
         const workspaces = await this.getUserWorkspaces(userId);
         onWorkspacesUpdate(workspaces);
         lastUpdateTime = Date.now();
       } catch (error) {
-        console.error('Error processing workspace update:', error);
+        console.error(`Error processing workspace update (client: ${clientId}):`, error);
         // Even on error, we should call the update to reset loading states
         onWorkspacesUpdate([]);
       } finally {
@@ -608,7 +612,7 @@ export class WorkspaceService {
         // If a pending update came in while processing, handle it
         if (pendingUpdate) {
           pendingUpdate = false;
-          setTimeout(processWorkspacesUpdate, 50);
+          setTimeout(processWorkspacesUpdate, 30); // Reduced from 50ms
         }
       }
     };
@@ -625,17 +629,15 @@ export class WorkspaceService {
       where('userId', '==', userId)
     );
     
-    console.log('Setting up workspace listeners for user:', userId);
-    
     // Set up listeners with error handling
     const unsubscribeOwned = onSnapshot(
       ownedWorkspacesQuery, 
       (ownedSnapshot) => {
-        console.log('Owned workspaces updated, docs:', ownedSnapshot.size);
+        console.log(`Owned workspaces updated for client ${clientId}, docs:`, ownedSnapshot.size);
         processWorkspacesUpdate();
       },
       (error) => {
-        console.error('Error in owned workspaces listener:', error);
+        console.error(`Error in owned workspaces listener (client: ${clientId}):`, error);
         // Call update to ensure loading state gets reset
         onWorkspacesUpdate([]);
       }
@@ -644,11 +646,11 @@ export class WorkspaceService {
     const unsubscribeMember = onSnapshot(
       memberWorkspacesQuery, 
       (memberSnapshot) => {
-        console.log('Member workspaces updated, docs:', memberSnapshot.size);
+        console.log(`Member workspaces updated for client ${clientId}, docs:`, memberSnapshot.size);
         processWorkspacesUpdate();
       },
       (error) => {
-        console.error('Error in member workspaces listener:', error);
+        console.error(`Error in member workspaces listener (client: ${clientId}):`, error);
         // Call update to ensure loading state gets reset
         onWorkspacesUpdate([]);
       }
@@ -659,7 +661,7 @@ export class WorkspaceService {
     
     // Return a function to unsubscribe from all listeners
     return () => {
-      console.log('Unsubscribing workspace listeners for user:', userId);
+      console.log(`Unsubscribing workspace listeners for user: ${userId} (client: ${clientId})`);
       unsubscribeOwned();
       unsubscribeMember();
     };

@@ -1,141 +1,133 @@
 # Wedding Planner Tool
 
-A collaborative platform for planning your wedding with friends and family. Manage workspaces, invite collaborators, track expenses, manage guest lists, and more!
+A collaborative financial planning tool for weddings and honeymoons that allows multiple users to work together in real-time.
 
 ## Features
 
-### Workspace Management
-- Create multiple wedding workspaces
-- Invite collaborators with different permission levels
-- Real-time collaboration with team members
+- **Multi-user Collaboration**: Work together with your partner, wedding planner, or family members in real-time
+- **Financial Planning**: Track expenses, gifts, and budgets for your wedding
+- **Contributor Management**: Keep track of who's contributing what
+- **Workspace Sharing**: Share your wedding workspace with anyone you choose
+- **Real-time Updates**: See changes as they happen across all connected devices
+- **Offline Support**: Continue working even when your connection drops, with automatic synchronization when you're back online
 
-### Comprehensive Wedding Planning
-- Track expenses and budgets
-- Manage guest lists and RSVPs
-- Create to-do lists and assign tasks
-- Keep notes and important information
-- Track vendors and contacts
+## Technical Overview
 
-### Collaboration Tools
-- Role-based permissions (Owners, Editors, Viewers)
-- Real-time updates across devices
-- Invitation system for adding collaborators
-- Activity tracking for team members
+The application is built with:
+
+- **Next.js 15**: For the frontend and API routes
+- **Firebase/Firestore**: For real-time database and authentication
+- **TypeScript**: For type safety and better developer experience
+- **Tailwind CSS**: For styling
+
+## Collaboration Features
+
+The app includes several advanced features to enable smooth multi-user collaboration:
+
+### Connection Monitoring
+
+The `ConnectionMonitor` class tracks network connectivity and provides:
+- Automatic detection of online/offline status
+- Periodic ping checks to verify actual connectivity
+- Smart reconnection with exponential backoff
+- Event system for notifying components of connection changes
+
+### Tab Synchronization
+
+The `TabSync` utility helps coordinate between multiple browser tabs:
+- Cross-tab communication using `localStorage`
+- Heartbeat mechanism to track active/inactive tabs
+- Debounced updates to prevent excessive state changes
+- Automatic cleanup when tabs close
+
+### Workspace Context
+
+The `WorkspaceContext` provides a unified interface for:
+- Real-time updates from Firestore
+- User activity tracking across tabs and devices
+- Workspace state management with error recovery
+- Automated reconnection after network issues
+
+### UI Components
+
+- **ConnectionStatus**: Visual indicator of connection state
+- **TabNavigation**: Synchronized tab navigation across users
+- **WorkspaceSynchronizer**: Core component managing collaboration
 
 ## Getting Started
 
-1. **Create an Account**: Sign up for an account using your email address
-2. **Create a Workspace**: Set up your first wedding workspace with basic information
-3. **Invite Collaborators**: Add team members to help you with the planning process
-4. **Start Planning**: Use the various tools to begin planning your perfect wedding!
+### Prerequisites
 
-## User Roles
+- Node.js 18+ and npm
+- Firebase account
 
-### Workspace Owner
-- Full control over the workspace
-- Can invite and remove members
-- Can change member roles
-- Can delete the workspace
+### Installation
 
-### Editor
-- Can add, edit, and delete content
-- Cannot manage workspace members
-- Cannot delete the workspace
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/wedding-planner-tool.git
+cd wedding-planner-tool
+```
 
-### Viewer
-- Can view all content
-- Cannot make changes to content
-- Cannot manage workspace members
+2. Install dependencies:
+```bash
+npm install
+```
 
-## Workspace Features
+3. Create a `.env.local` file with your Firebase configuration:
+```
+NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-auth-domain
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-storage-bucket
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-messaging-sender-id
+NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
+```
 
-### Dashboard
-The dashboard provides an overview of your wedding planning progress, including:
+4. Start the development server:
+```bash
+npm run dev
+```
 
-- Recent activities
-- Upcoming tasks and deadlines
-- Budget overview
-- Quick access to frequently used features
+5. Build for production:
+```bash
+npm run build
+```
 
-### Expenses
-Track and manage all your wedding expenses:
+## Collaborative Architecture
 
-- Categorize expenses
-- Set and monitor budgets
-- Track payments and remaining balances
-- Generate expense reports
+The application uses a multi-layered approach to ensure reliable collaboration:
 
-### Guest List
-Manage your wedding guests easily:
+1. **Firebase Realtime Updates**: Core data synchronization
+2. **Connection Monitoring**: Network status tracking and recovery
+3. **Tab Synchronization**: Cross-tab coordination
+4. **Error Boundaries**: Isolated error handling to prevent cascading failures
+5. **Debounced Updates**: Prevention of excessive database operations
+6. **Local Storage Fallback**: Temporary state maintenance during connectivity issues
 
-- Track RSVPs
-- Organize guests by groups
-- Manage plus-ones
-- Track dietary restrictions and seating preferences
+## Troubleshooting Collaboration Issues
 
-### Tasks
-Stay organized with task management:
+If you experience issues with real-time collaboration:
 
-- Create to-do lists
-- Assign tasks to team members
-- Set deadlines and priorities
-- Track progress and completed tasks
+1. **Connection Issues**: Check the connection indicator in the top-right. If it shows offline, check your internet connection.
+2. **Data Not Syncing**: Try refreshing the page. If the issue persists, check if another user has made conflicting changes.
+3. **Inconsistent UI**: If different users see different states, try clicking on a different tab and then back to synchronize views.
 
-### Vendors
-Keep track of all your wedding vendors:
+## Recent Improvements
 
-- Store contact information
-- Track contracts and payments
-- Store documents and agreements
-- Manage communication history
+We've recently made significant improvements to the collaborative workspace functionality:
 
-## Data Privacy and Security
+- Added robust connection monitoring and recovery
+- Implemented tab synchronization for consistent UI state
+- Enhanced error handling and recovery
+- Optimized Firestore listeners to reduce database operations
+- Added visual indicators for connection status
+- Improved tab navigation synchronization across users
 
-- All your data is securely stored using Firebase
-- Role-based access controls ensure only authorized users can access your information
-- Your information is never shared with third parties without your consent
+## License
 
-## Account Management
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-### Updating Your Profile
-To update your profile information:
+## Contributors
 
-1. Click on your avatar in the top right corner
-2. Select "Profile" from the dropdown menu
-3. Update your information and click "Save"
-
-### Password Reset
-If you forget your password:
-
-1. Click "Forgot Password" on the login screen
-2. Enter your email address
-3. Follow the instructions sent to your email
-
-## FAQ
-
-### Can I create multiple wedding workspaces?
-Yes, you can create as many workspaces as you need. This is useful if you're planning multiple events or helping others plan their weddings.
-
-### How do I delete my account?
-To delete your account:
-
-1. Go to your profile settings
-2. Scroll to the bottom and click "Delete Account"
-3. Confirm your decision
-
-Note that this will permanently delete all your data and cannot be undone.
-
-### Is there a mobile app?
-Currently, the platform is optimized for web browsers but works well on mobile devices through responsive design. Dedicated mobile apps are planned for the future.
-
-## Support
-
-If you need assistance, please contact us at support@weddingplannertool.com or use the "Help" section within the application.
-
-## Terms of Service
-
-By using this application, you agree to our [Terms of Service](https://weddingplannertool.com/terms) and [Privacy Policy](https://weddingplannertool.com/privacy).
-
-## Credits
-
-Developed with ❤️ for couples planning their special day.
+- Wesley Pitts - Lead Developer

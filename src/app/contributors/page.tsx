@@ -5,6 +5,7 @@ import { useWedding } from '../../context/WeddingContext';
 import { formatCurrency } from '../../lib/excel-utils';
 import Link from 'next/link';
 import { Button } from '../../components/ui/Button';
+import { TabNavigation } from '../../components/ui/TabNavigation';
 import type { PaymentAllocation, Gift, GiftAllocation, ContributorGift } from '../../types';
 
 export default function ContributorsPage() {
@@ -47,6 +48,18 @@ export default function ContributorsPage() {
   const totalExpensesPaid = expenses.reduce((total, expense) => 
     total + expense.paymentAllocations.reduce((sum, allocation) => sum + allocation.amount, 0), 0);
   
+  // Define tabs for the TabNavigation component
+  const tabs = [
+    { id: 'all', label: 'All Contributors' },
+    { id: 'withGifts', label: 'With Gifts' },
+    { id: 'withExpenses', label: 'With Expenses' }
+  ];
+  
+  // Handle tab change
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId as 'all' | 'withGifts' | 'withExpenses');
+  };
+  
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="flex justify-between items-center mb-6">
@@ -77,29 +90,15 @@ export default function ContributorsPage() {
         </div>
       </div>
       
-      {/* Tabs */}
-      <div className="flex border-b mb-6">
-        <button 
-          className={`px-4 py-2 font-medium ${activeTab === 'all' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground'}`}
-          onClick={() => setActiveTab('all')}
-          type="button"
-        >
-          All Contributors
-        </button>
-        <button 
-          className={`px-4 py-2 font-medium ${activeTab === 'withGifts' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground'}`}
-          onClick={() => setActiveTab('withGifts')}
-          type="button"
-        >
-          With Gifts
-        </button>
-        <button 
-          className={`px-4 py-2 font-medium ${activeTab === 'withExpenses' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground'}`}
-          onClick={() => setActiveTab('withExpenses')}
-          type="button"
-        >
-          With Expenses
-        </button>
+      {/* Tabs - Using our new TabNavigation component */}
+      <div className="mb-6">
+        <TabNavigation 
+          tabs={tabs} 
+          activeTab={activeTab} 
+          onChange={handleTabChange} 
+          storageKey="contributors-tab" 
+          variant="underline"
+        />
       </div>
       
       {/* Search */}
@@ -132,134 +131,117 @@ export default function ContributorsPage() {
         </div>
       </div>
       
-      {/* Contributors Grid */}
-      {filteredContributors.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredContributors.map(contributor => {
-            // Calculate total contributed by this contributor through expenses
-            const totalContributed = expenses.reduce((total, expense) => {
-              const contributorAllocations = expense.paymentAllocations.filter(
-                (allocation: PaymentAllocation) => allocation.contributorId === contributor.id
+      {/* Tab panels */}
+      <div id={`tabpanel-${activeTab}`} role="tabpanel" aria-labelledby={`tab-${activeTab}`}>
+        {/* Contributors Grid */}
+        {filteredContributors.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredContributors.map(contributor => {
+              // Calculate total contributed by this contributor through expenses
+              const totalContributed = expenses.reduce((total, expense) => {
+                const contributorAllocations = expense.paymentAllocations.filter(
+                  (allocation: PaymentAllocation) => allocation.contributorId === contributor.id
+                );
+                return total + contributorAllocations.reduce((sum: number, allocation: PaymentAllocation) => sum + allocation.amount, 0);
+              }, 0);
+              
+              // Get the expenses this contributor has paid for
+              const contributedExpenses = expenses.filter(expense => 
+                expense.paymentAllocations.some(
+                  (allocation: PaymentAllocation) => allocation.contributorId === contributor.id
+                )
               );
-              return total + contributorAllocations.reduce((sum: number, allocation: PaymentAllocation) => sum + allocation.amount, 0);
-            }, 0);
-            
-            // Get the expenses this contributor has paid for
-            const contributedExpenses = expenses.filter(expense => 
-              expense.paymentAllocations.some(
-                (allocation: PaymentAllocation) => allocation.contributorId === contributor.id
-              )
-            );
-            
-            // Calculate total gifts from this contributor (from both models)
-            const oldModelGifts = gifts.filter(gift => 
-              gift.fromPerson.toLowerCase() === contributor.name.toLowerCase()
-            );
-            
-            const totalGiftsOldModel = oldModelGifts.reduce((sum, gift) => sum + gift.amount, 0);
-            const totalGiftsNewModel = contributor.gifts?.reduce((sum, gift) => sum + gift.amount, 0) || 0;
-            const totalGiftsAmount = totalGiftsOldModel + totalGiftsNewModel;
-            
-            // Calculate balance (gifts - expenses paid)
-            const balance = totalGiftsAmount - totalContributed;
-            
-            return (
-              <div key={contributor.id} className="bg-card rounded-lg p-6 shadow-md border">
-                <h2 className="text-xl font-bold mb-2">{contributor.name}</h2>
-                
-                <div className="grid grid-cols-2 gap-4 mb-3">
-                  <div>
-                    <h3 className="text-xs text-muted-foreground">Gift Amount</h3>
-                    <div className="text-lg font-semibold text-green-600">
-                      {formatCurrency(totalGiftsAmount)}
+              
+              // Calculate total gifts from this contributor (from both models)
+              const oldModelGifts = gifts.filter(gift => 
+                gift.fromPerson.toLowerCase() === contributor.name.toLowerCase()
+              );
+              
+              const totalGiftsOldModel = oldModelGifts.reduce((sum, gift) => sum + gift.amount, 0);
+              const totalGiftsNewModel = contributor.gifts?.reduce((sum, gift) => sum + gift.amount, 0) || 0;
+              const totalGiftsAmount = totalGiftsOldModel + totalGiftsNewModel;
+              
+              // Calculate balance (gifts - expenses paid)
+              const balance = totalGiftsAmount - totalContributed;
+              
+              return (
+                <div key={contributor.id} className="bg-card rounded-lg p-6 shadow-md border">
+                  <h2 className="text-xl font-bold mb-2">{contributor.name}</h2>
+                  
+                  <div className="grid grid-cols-2 gap-4 mb-3">
+                    <div>
+                      <h3 className="text-xs text-muted-foreground">Gift Amount</h3>
+                      <div className="text-lg font-semibold text-green-600">
+                        {formatCurrency(totalGiftsAmount)}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h3 className="text-xs text-muted-foreground">Expense Payments</h3>
+                      <div className="text-lg font-semibold text-blue-600">
+                        {formatCurrency(totalContributed)}
+                      </div>
                     </div>
                   </div>
                   
-                  <div>
-                    <h3 className="text-xs text-muted-foreground">Expense Payments</h3>
-                    <div className="text-lg font-semibold text-blue-600">
-                      {formatCurrency(totalContributed)}
+                  {showGiftBalance && (
+                    <div className="mb-3 p-2 bg-muted rounded-md">
+                      <h3 className="text-xs text-muted-foreground">Balance</h3>
+                      <div className={`text-lg font-semibold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {formatCurrency(balance)}
+                      </div>
                     </div>
+                  )}
+                  
+                  {(oldModelGifts.length > 0 || (contributor.gifts && contributor.gifts.length > 0)) && (
+                    <div className="mb-3">
+                      <h3 className="font-medium text-sm text-muted-foreground mb-1">
+                        Gifts ({oldModelGifts.length + (contributor.gifts?.length || 0)})
+                      </h3>
+                      <ul className="text-sm space-y-1">
+                        {oldModelGifts.slice(0, 1).map(gift => (
+                          <li key={gift.id} className="truncate">
+                            • {formatCurrency(gift.amount)} on {new Date(gift.date).toLocaleDateString()}
+                          </li>
+                        ))}
+                        {contributor.gifts?.slice(0, 1).map(gift => (
+                          <li key={gift.id} className="truncate">
+                            • {formatCurrency(gift.amount)} on {new Date(gift.date).toLocaleDateString()}
+                          </li>
+                        ))}
+                        {(oldModelGifts.length + (contributor.gifts?.length || 0)) > 1 && (
+                          <li className="text-muted-foreground text-xs">
+                            And {(oldModelGifts.length + (contributor.gifts?.length || 0)) - 1} more...
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  <div className="mt-4 space-x-2">
+                    <Link href={`/contributors/${contributor.id}/edit`}>
+                      <Button variant="outline" size="sm">Edit</Button>
+                    </Link>
+                    <Link href={`/contributors/${contributor.id}/details`}>
+                      <Button variant="secondary" size="sm">View Details</Button>
+                    </Link>
+                    <Link href={`/contributors/${contributor.id}/add-gift`}>
+                      <Button variant="default" size="sm">Add Gift</Button>
+                    </Link>
                   </div>
                 </div>
-                
-                {showGiftBalance && (
-                  <div className="mb-3 p-2 bg-muted rounded-md">
-                    <h3 className="text-xs text-muted-foreground">Balance</h3>
-                    <div className={`text-lg font-semibold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {formatCurrency(balance)}
-                    </div>
-                  </div>
-                )}
-                
-                {contributedExpenses.length > 0 && (
-                  <div className="mb-3">
-                    <h3 className="font-medium text-sm text-muted-foreground mb-1">
-                      Payments ({contributedExpenses.length})
-                    </h3>
-                    <ul className="text-sm space-y-1">
-                      {contributedExpenses.slice(0, 2).map(expense => (
-                        <li key={expense.id} className="truncate">
-                          • {expense.title}
-                        </li>
-                      ))}
-                      {contributedExpenses.length > 2 && (
-                        <li className="text-muted-foreground text-xs">
-                          And {contributedExpenses.length - 2} more...
-                        </li>
-                      )}
-                    </ul>
-                  </div>
-                )}
-                
-                {(oldModelGifts.length > 0 || (contributor.gifts && contributor.gifts.length > 0)) && (
-                  <div className="mb-3">
-                    <h3 className="font-medium text-sm text-muted-foreground mb-1">
-                      Gifts ({oldModelGifts.length + (contributor.gifts?.length || 0)})
-                    </h3>
-                    <ul className="text-sm space-y-1">
-                      {oldModelGifts.slice(0, 1).map(gift => (
-                        <li key={gift.id} className="truncate">
-                          • {formatCurrency(gift.amount)} on {new Date(gift.date).toLocaleDateString()}
-                        </li>
-                      ))}
-                      {contributor.gifts?.slice(0, 1).map(gift => (
-                        <li key={gift.id} className="truncate">
-                          • {formatCurrency(gift.amount)} on {new Date(gift.date).toLocaleDateString()}
-                        </li>
-                      ))}
-                      {(oldModelGifts.length + (contributor.gifts?.length || 0)) > 1 && (
-                        <li className="text-muted-foreground text-xs">
-                          And {(oldModelGifts.length + (contributor.gifts?.length || 0)) - 1} more...
-                        </li>
-                      )}
-                    </ul>
-                  </div>
-                )}
-                
-                <div className="mt-4 space-x-2">
-                  <Link href={`/contributors/${contributor.id}/edit`}>
-                    <Button variant="outline" size="sm">Edit</Button>
-                  </Link>
-                  <Link href={`/contributors/${contributor.id}/details`}>
-                    <Button variant="secondary" size="sm">View Details</Button>
-                  </Link>
-                  <Link href={`/contributors/${contributor.id}/add-gift`}>
-                    <Button variant="default" size="sm">Add Gift</Button>
-                  </Link>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="bg-card rounded-lg shadow p-8 text-center">
-          <p className="text-muted-foreground mb-4">No contributors found</p>
-          <Link href="/contributors/new">
-            <Button>Add Your First Contributor</Button>
-          </Link>
-        </div>
-      )}
+              );
+            })}
+          </div>
+        ) : (
+          <div className="bg-card rounded-lg shadow p-8 text-center">
+            <p className="text-muted-foreground mb-4">No contributors found</p>
+            <Link href="/contributors/new">
+              <Button>Add Your First Contributor</Button>
+            </Link>
+          </div>
+        )}
+      </div>
     </div>
   );
 } 

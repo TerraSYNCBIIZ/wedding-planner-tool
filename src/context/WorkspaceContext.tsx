@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useCallback, type ReactNode, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { WorkspaceService, type WorkspaceDetails, type WorkspaceMember } from '@/lib/services/workspace-service';
+import { connectionMonitor } from '@/lib/firebase';
 
 // Context type
 interface WorkspaceContextType {
@@ -10,6 +11,7 @@ interface WorkspaceContextType {
   isLoading: boolean;
   currentWorkspaceId: string | null;
   setCurrentWorkspaceId: (id: string | null) => void;
+  isOnline: boolean;
   
   // Workspace management
   refreshWorkspaces: () => Promise<void>;
@@ -30,6 +32,9 @@ interface WorkspaceContextType {
   removeMember: (memberId: string, workspaceId: string) => Promise<boolean>;
   updateMemberRole: (memberId: string, newRole: 'editor' | 'viewer') => Promise<boolean>;
   leaveWorkspace: (memberId: string) => Promise<boolean>;
+  
+  // Active user tracking
+  registerTabActivity: () => void;
 }
 
 // Create context
@@ -41,45 +46,90 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [currentWorkspaceId, setCurrentWorkspaceId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
   const { user } = useAuth();
   
   // Use a ref to track currentWorkspaceId without causing effect reruns
   const currentWorkspaceIdRef = useRef<string | null>(null);
   
+  // Session ID to uniquely identify this browser tab
+  const sessionIdRef = useRef<string>(`session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
+  
+  // Last activity timestamp
+  const lastActivityRef = useRef<number>(Date.now());
+  
+  // Workspace listener unsubscribe function
+  const unsubscribeRef = useRef<(() => void) | null>(null);
+  
+  // Register tab activity
+  const registerTabActivity = useCallback(() => {
+    lastActivityRef.current = Date.now();
+    
+    // Store session activity in localStorage for cross-tab coordination
+    if (user?.uid && currentWorkspaceIdRef.current) {
+      try {
+        const key = `workspace_activity_${user.uid}_${currentWorkspaceIdRef.current}`;
+        const activityData = {
+          sessionId: sessionIdRef.current,
+          timestamp: lastActivityRef.current
+        };
+        localStorage.setItem(key, JSON.stringify(activityData));
+      } catch (error) {
+        console.error('Error registering tab activity:', error);
+      }
+    }
+  }, [user]);
+  
   // Keep the ref in sync with the state
   useEffect(() => {
     currentWorkspaceIdRef.current = currentWorkspaceId;
-  }, [currentWorkspaceId]);
+    
+    // Update activity when workspace changes
+    if (currentWorkspaceId) {
+      registerTabActivity();
+    }
+  }, [currentWorkspaceId, registerTabActivity]);
   
-  // Use the workspace listener to keep data up to date
+  // Monitor connection status
   useEffect(() => {
-    if (!user) {
-      setWorkspaces([]);
-      setIsLoading(false);
-      // Clear the workspace load flag when user logs out
-      localStorage.removeItem('initialWorkspaceLoadTriggered');
-      return;
-    }
+    const connectionListenerId = connectionMonitor.addListener((online) => {
+      setIsOnline(online);
+      
+      // If we're back online, try to reconnect and refresh data
+      if (online && user) {
+        console.log('Connection restored, refreshing workspace data...');
+        
+        // Reset workspace listeners
+        if (unsubscribeRef.current) {
+          unsubscribeRef.current();
+          unsubscribeRef.current = null;
+        }
+        
+        // Set up listeners again
+        setupWorkspaceListeners();
+        
+        // Refresh data manually
+        refreshWorkspaces().catch(error => {
+          console.error('Error refreshing workspaces after reconnection:', error);
+        });
+      }
+    });
     
-    // Check if user has a valid auth token
-    const hasAuthToken = document.cookie.includes('authToken=') || document.cookie.includes('auth_token=');
-    if (!hasAuthToken) {
-      console.warn('No auth token found in cookies, skipping workspace listener setup');
-      setIsLoading(false);
-      return;
-    }
+    return () => {
+      connectionMonitor.removeListener(connectionListenerId);
+    };
+  }, [user]);
+  
+  // Setup workspace listeners function
+  const setupWorkspaceListeners = useCallback(() => {
+    if (!user) return null;
     
-    setIsLoading(true);
-    let isUnmounted = false;
-    
-    console.log('Setting up workspace listeners for user:', user.uid);
+    console.log('Setting up workspace listeners for user:', user.uid, 'session:', sessionIdRef.current);
     
     // Set up listeners for realtime updates
     const unsubscribe = WorkspaceService.setupWorkspaceListeners(
       user.uid,
       (updatedWorkspaces) => {
-        if (isUnmounted) return;
-        
         console.log('Workspace listener update:', updatedWorkspaces.length, 'workspaces');
         setWorkspaces(updatedWorkspaces);
         setIsLoading(false);
@@ -96,6 +146,41 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
       }
     );
     
+    unsubscribeRef.current = unsubscribe;
+    return unsubscribe;
+  }, [user]);
+  
+  // Use the workspace listener to keep data up to date
+  useEffect(() => {
+    if (!user) {
+      setWorkspaces([]);
+      setIsLoading(false);
+      // Clear the workspace load flag when user logs out
+      localStorage.removeItem('initialWorkspaceLoadTriggered');
+      
+      // Clean up any existing listeners
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+      }
+      
+      return;
+    }
+    
+    // Check if user has a valid auth token
+    const hasAuthToken = document.cookie.includes('authToken=') || document.cookie.includes('auth_token=');
+    if (!hasAuthToken) {
+      console.warn('No auth token found in cookies, skipping workspace listener setup');
+      setIsLoading(false);
+      return;
+    }
+    
+    setIsLoading(true);
+    let isUnmounted = false;
+    
+    // Set up listeners for realtime updates
+    const unsubscribe = setupWorkspaceListeners();
+    
     // Safety timeout to ensure loading state doesn't get stuck
     const safetyTimeout = setTimeout(() => {
       if (isUnmounted) return;
@@ -105,34 +190,22 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
       
       // Don't automatically refresh - this is causing the loop
       // Instead, just reset the loading state
-    }, 10000); // 10 second safety timeout
+    }, 10000);
     
     return () => {
       isUnmounted = true;
-      unsubscribe();
       clearTimeout(safetyTimeout);
+      
+      if (unsubscribe) {
+        unsubscribe();
+        unsubscribeRef.current = null;
+      }
     };
-  }, [user]); // No need to include currentWorkspaceId as dependency now
+  }, [user, setupWorkspaceListeners]);
   
-  // Initial load of workspaces
+  // Refresh workspaces manually
   const refreshWorkspaces = useCallback(async (): Promise<void> => {
-    if (!user) {
-      setWorkspaces([]);
-      setIsLoading(false);
-      return;
-    }
-    
-    // Check if user has a valid auth token
-    const hasAuthToken = document.cookie.includes('authToken=') || document.cookie.includes('auth_token=');
-    if (!hasAuthToken) {
-      console.warn('No auth token found in cookies, skipping workspace refresh');
-      setIsLoading(false);
-      return;
-    }
-    
-    // Prevent multiple concurrent refreshes
-    if (isRefreshing) {
-      console.log('Already refreshing workspaces, skipping redundant call');
+    if (!user || isRefreshing) {
       return;
     }
     
@@ -176,7 +249,7 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
         setIsRefreshing(false);
       }, 1000);
     }
-  }, [user, isRefreshing]); // Remove currentWorkspaceId from dependencies
+  }, [user, isRefreshing]);
   
   // Create a new workspace
   const createWorkspace = useCallback(async (data: {
@@ -304,11 +377,28 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     try {
       setIsLoading(true);
       
-      return await WorkspaceService.removeMember({
+      const success = await WorkspaceService.removeMember({
         workspaceId,
         memberId,
         requestingUserId: user.uid
       });
+      
+      if (success) {
+        // Update workspaces state to reflect the change
+        setWorkspaces(prev => 
+          prev.map(workspace => {
+            if (workspace.id === workspaceId) {
+              return {
+                ...workspace,
+                members: workspace.members.filter(m => m.id !== memberId)
+              };
+            }
+            return workspace;
+          })
+        );
+      }
+      
+      return success;
     } catch (error) {
       console.error('Error removing member:', error);
       return false;
@@ -326,27 +416,49 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     try {
       setIsLoading(true);
       
-      // Find the workspace ID for this member
+      // Find the workspace this member belongs to
       let workspaceId = '';
+      let memberWorkspace = null;
+      
       for (const workspace of workspaces) {
         const member = workspace.members.find(m => m.id === memberId);
         if (member) {
           workspaceId = workspace.id;
+          memberWorkspace = workspace;
           break;
         }
       }
       
-      if (!workspaceId) {
+      if (!workspaceId || !memberWorkspace) {
         console.error('Could not find workspace for member:', memberId);
         return false;
       }
       
-      return await WorkspaceService.updateMemberRole({
+      const success = await WorkspaceService.updateMemberRole({
         workspaceId,
         memberId,
-        newRole,
-        requestingUserId: user.uid
+        requestingUserId: user.uid,
+        newRole
       });
+      
+      if (success) {
+        // Update workspaces state to reflect the change
+        setWorkspaces(prev => 
+          prev.map(workspace => {
+            if (workspace.id === workspaceId) {
+              return {
+                ...workspace,
+                members: workspace.members.map(m => 
+                  m.id === memberId ? { ...m, role: newRole } : m
+                )
+              };
+            }
+            return workspace;
+          })
+        );
+      }
+      
+      return success;
     } catch (error) {
       console.error('Error updating member role:', error);
       return false;
@@ -421,11 +533,14 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     if (currentWorkspaceId) {
       // Set a cookie for the current workspace to be used by the middleware
       document.cookie = `currentWorkspaceId=${currentWorkspaceId}; path=/; max-age=31536000; SameSite=Lax`;
+      
+      // Register activity for this workspace
+      registerTabActivity();
     } else {
       // Clear the cookie if no workspace selected
       document.cookie = 'currentWorkspaceId=; path=/; max-age=0; SameSite=Lax';
     }
-  }, [currentWorkspaceId]);
+  }, [currentWorkspaceId, registerTabActivity]);
   
   // Context value
   const value = {
@@ -433,13 +548,15 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     isLoading,
     currentWorkspaceId,
     setCurrentWorkspaceId,
+    isOnline,
     refreshWorkspaces,
     createWorkspace,
     updateWorkspace,
     deleteWorkspace,
     removeMember,
     updateMemberRole,
-    leaveWorkspace
+    leaveWorkspace,
+    registerTabActivity
   };
   
   return (
@@ -449,7 +566,7 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-// Hook for using the workspace context
+// Custom hook to use the workspace context
 export const useWorkspace = (): WorkspaceContextType => {
   const context = useContext(WorkspaceContext);
   

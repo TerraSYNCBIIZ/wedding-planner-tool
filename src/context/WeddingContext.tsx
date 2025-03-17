@@ -43,6 +43,7 @@ import { useAuth } from './AuthContext';
 import { useWorkspace } from './WorkspaceContext';
 import { doc, getDoc, updateDoc, writeBatch, Timestamp } from 'firebase/firestore';
 import { firestore } from '../lib/firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
 // Define the context type
 interface WeddingContextType {
@@ -110,6 +111,19 @@ interface WeddingContextType {
 
 // Create the context
 const WeddingContext = createContext<WeddingContextType | undefined>(undefined);
+
+// Add a debounce utility function at the top of the file
+const debounce = <T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): ((...args: Parameters<T>) => void) => {
+  let timeout: NodeJS.Timeout;
+  
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+};
 
 // Provider component
 export const WeddingProvider = ({ children }: { children: ReactNode }) => {
@@ -911,6 +925,123 @@ export const WeddingProvider = ({ children }: { children: ReactNode }) => {
       contributors: contributorsPayments
     };
   };
+
+  // Modify the useEffect that sets up Firebase listeners to include error recovery
+  useEffect(() => {
+    const unsubscribeHandlers: (() => void)[] = [];
+    let syncErrors = 0;
+    const MAX_SYNC_ERRORS = 5;
+    const ERROR_RESET_INTERVAL = 60000; // 1 minute
+    
+    // Error tracking interval
+    const errorResetInterval = setInterval(() => {
+      if (syncErrors > 0) {
+        console.log(`Resetting sync error count from ${syncErrors} to 0`);
+        syncErrors = 0;
+      }
+    }, ERROR_RESET_INTERVAL);
+    
+    const setupListeners = () => {
+      try {
+        // Add error handling to each listener
+        const addListenerWithErrorRecovery = (
+          collectionPath: string,
+          stateUpdater: (data: any[]) => void
+        ) => {
+          try {
+            const collectionRef = collection(firestore, collectionPath);
+            const q = currentWorkspaceId 
+              ? query(collectionRef, where('workspaceId', '==', currentWorkspaceId))
+              : collectionRef;
+            
+            const unsubscribe = onSnapshot(
+              q,
+              (snapshot) => {
+                try {
+                  const items = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                  }));
+                  
+                  // Use debounce for state updates to prevent multiple rapid updates
+                  const debouncedUpdate = debounce((data: any[]) => {
+                    stateUpdater(data);
+                  }, 300);
+                  
+                  debouncedUpdate(items);
+                } catch (error) {
+                  console.error(`Error processing ${collectionPath} snapshot:`, error);
+                  syncErrors++;
+                  
+                  // If too many errors, attempt recovery
+                  if (syncErrors >= MAX_SYNC_ERRORS) {
+                    console.warn(`Too many sync errors (${syncErrors}), triggering recovery...`);
+                    
+                    // Clean up existing listeners and try to set up again after a delay
+                    unsubscribeAll();
+                    setTimeout(setupListeners, 5000);
+                    
+                    // Reset error counter
+                    syncErrors = 0;
+                  }
+                }
+              },
+              (error) => {
+                console.error(`Error in ${collectionPath} listener:`, error);
+                syncErrors++;
+                
+                // If listener fails completely, attempt recovery
+                if (syncErrors >= MAX_SYNC_ERRORS) {
+                  console.warn(`Too many sync errors (${syncErrors}), triggering recovery...`);
+                  
+                  // Clean up existing listeners and try to set up again after a delay
+                  unsubscribeAll();
+                  setTimeout(setupListeners, 5000);
+                  
+                  // Reset error counter
+                  syncErrors = 0;
+                }
+              }
+            );
+            
+            unsubscribeHandlers.push(unsubscribe);
+            return unsubscribe;
+          } catch (error) {
+            console.error(`Failed to set up listener for ${collectionPath}:`, error);
+            syncErrors++;
+            return () => {}; // Return empty function as fallback
+          }
+        };
+        
+        // Apply the error recovery to all listeners
+        addListenerWithErrorRecovery(`workspaces/${currentWorkspaceId}/expenses`, setExpenses);
+        addListenerWithErrorRecovery(`workspaces/${currentWorkspaceId}/contributors`, setContributors);
+        // ... other listeners ...
+      } catch (error) {
+        console.error('Error setting up Firebase listeners:', error);
+      }
+    };
+    
+    const unsubscribeAll = () => {
+      unsubscribeHandlers.forEach(unsubscribe => {
+        try {
+          unsubscribe();
+        } catch (error) {
+          console.error('Error unsubscribing listener:', error);
+        }
+      });
+      unsubscribeHandlers.length = 0; // Clear the array
+    };
+    
+    // Initial setup
+    setupListeners();
+    
+    // Cleanup function
+    return () => {
+      clearInterval(errorResetInterval);
+      unsubscribeAll();
+    };
+  }, [currentWorkspaceId, user]);
 
   // Context value
   const value: WeddingContextType = {

@@ -13,6 +13,8 @@ import { initEmailJS } from '@/lib/emailjs-init';
 import { AppSidebar } from '@/components/ui/AppSidebar';
 import { ToastProvider } from '@/components/ui/toast';
 import { initApiBlocker } from '@/lib/blockedApiHosts';
+import { WorkspaceSynchronizer } from '@/components/workspace/WorkspaceSynchronizer';
+import { ConnectionStatus } from '@/components/ui/ConnectionStatus';
 
 export default function ClientLayout({
   children,
@@ -31,14 +33,22 @@ export default function ClientLayout({
   return (
     <>
       <ParallaxBackground />
-      <AuthProvider>
-        <WorkspaceProvider>
-          <WeddingProvider>
-            <InvitationProvider>
-              <ToastProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <WorkspaceProvider>
+            <WeddingProvider>
+              <InvitationProvider>
+                <WorkspaceSynchronizer />
                 <div className="flex flex-col min-h-screen">
                   {/* Only render the sidebar if not on the landing page */}
                   {!isLandingPage && <AppSidebar />}
+                  
+                  {/* Connection status indicator */}
+                  {!isLandingPage && (
+                    <div className="fixed top-4 right-4 z-50">
+                      <ConnectionStatus variant="pill" />
+                    </div>
+                  )}
                   
                   {/* Main content */}
                   <main className={`flex-grow ${!isLandingPage ? 'py-8' : ''}`}>
@@ -71,11 +81,11 @@ export default function ClientLayout({
                     </footer>
                   )}
                 </div>
-              </ToastProvider>
-            </InvitationProvider>
-          </WeddingProvider>
-        </WorkspaceProvider>
-      </AuthProvider>
+              </InvitationProvider>
+            </WeddingProvider>
+          </WorkspaceProvider>
+        </AuthProvider>
+      </ToastProvider>
     </>
   );
 } 
