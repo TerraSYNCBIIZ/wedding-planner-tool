@@ -14,7 +14,6 @@ const nextConfig = {
   // Make sure images are properly optimized
   images: {
     domains: ['firebasestorage.googleapis.com'],
-    unoptimized: false, // Keep optimized images
   },
   // Ensure CSS is properly loaded
   poweredByHeader: false,
@@ -25,20 +24,7 @@ const nextConfig = {
     optimizeServerReact: true,
     optimizePackageImports: ['lucide-react']
   },
-  // Changed back to standalone for Netlify with server-side rendering
-  output: 'standalone',
-  
-  // Ensure static assets are properly handled
-  assetPrefix: process.env.NODE_ENV === 'production' ? undefined : '',
-  
-  // Configure trailing slash for consistent URL handling
-  trailingSlash: false,
-  
-  // Optimize for production
-  productionBrowserSourceMaps: false,
-  
-  // Configure static file serving
-  distDir: '.next',
+  // Remove all the other configuration that might be causing issues
 };
 
 module.exports = nextConfig; 
