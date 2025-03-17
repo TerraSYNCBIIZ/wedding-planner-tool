@@ -27,6 +27,18 @@ const nextConfig = {
   },
   // Add output configuration for better Netlify compatibility
   output: 'standalone',
+  
+  // Ensure static assets are properly handled
+  assetPrefix: process.env.NODE_ENV === 'production' ? undefined : undefined,
+  
+  // Configure trailing slash for consistent URL handling
+  trailingSlash: false,
+  
+  // Optimize for production
+  productionBrowserSourceMaps: false,
+  
+  // Configure static file serving
+  distDir: '.next',
 };
 
 module.exports = nextConfig; 
