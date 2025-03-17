@@ -92,63 +92,68 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
   
   // Monitor connection status
   useEffect(() => {
+    let lastRefreshTime = 0;
+    const REFRESH_COOLDOWN_MS = 30000; // 30 seconds between refreshes
+    
     const connectionListenerId = connectionMonitor.addListener((online) => {
       setIsOnline(online);
       
       // If we're back online, try to reconnect and refresh data
       if (online && user) {
-        console.log('Connection restored, refreshing workspace data...');
+        const now = Date.now();
         
-        // Reset workspace listeners
-        if (unsubscribeRef.current) {
-          unsubscribeRef.current();
-          unsubscribeRef.current = null;
+        // Only perform refresh if we haven't done so recently
+        if (now - lastRefreshTime > REFRESH_COOLDOWN_MS) {
+          console.log('Connection restored, refreshing workspace data...');
+          lastRefreshTime = now;
+          
+          // Reset workspace listeners
+          if (unsubscribeRef.current) {
+            unsubscribeRef.current();
+            unsubscribeRef.current = null;
+          }
+          
+          // Set up listeners again with small delay to avoid race conditions
+          setTimeout(() => {
+            setupWorkspaceListeners(user.uid, sessionIdRef.current);
+          }, 100);
+          
+          // Refresh data manually with a small delay
+          setTimeout(() => {
+            refreshWorkspaces().catch(error => {
+              console.error('Error refreshing workspaces after reconnection:', error);
+            });
+          }, 500);
+        } else {
+          console.log(`Skipping workspace refresh - last refresh was ${(now - lastRefreshTime) / 1000}s ago`);
         }
-        
-        // Set up listeners again
-        setupWorkspaceListeners();
-        
-        // Refresh data manually
-        refreshWorkspaces().catch(error => {
-          console.error('Error refreshing workspaces after reconnection:', error);
-        });
       }
     });
     
     return () => {
       connectionMonitor.removeListener(connectionListenerId);
     };
-  }, [user]);
+  }, [user, sessionIdRef.current]);
   
   // Setup workspace listeners function
-  const setupWorkspaceListeners = useCallback(() => {
-    if (!user) return null;
+  const setupWorkspaceListeners = useCallback((userId: string, sessionId: string) => {
+    if (!userId) return null;
     
-    console.log('Setting up workspace listeners for user:', user.uid, 'session:', sessionIdRef.current);
+    console.log('Setting up workspace listeners for user:', userId, 'session:', sessionId);
     
     // Set up listeners for realtime updates
     const unsubscribe = WorkspaceService.setupWorkspaceListeners(
-      user.uid,
+      userId,
       (updatedWorkspaces) => {
         console.log('Workspace listener update:', updatedWorkspaces.length, 'workspaces');
         setWorkspaces(updatedWorkspaces);
-        setIsLoading(false);
-        
-        // Set current workspace ID if not already set
-        if (!currentWorkspaceIdRef.current && updatedWorkspaces.length > 0) {
-          const ownedWorkspace = updatedWorkspaces.find(w => w.isOwner);
-          if (ownedWorkspace) {
-            setCurrentWorkspaceId(ownedWorkspace.id);
-          } else if (updatedWorkspaces.length > 0) {
-            setCurrentWorkspaceId(updatedWorkspaces[0].id);
-          }
-        }
-      }
+      },
+      sessionIdRef.current
     );
     
     unsubscribeRef.current = unsubscribe;
     return unsubscribe;
-  }, [user]);
+  }, []);
   
   // Use the workspace listener to keep data up to date
   useEffect(() => {
@@ -179,7 +184,7 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     let isUnmounted = false;
     
     // Set up listeners for realtime updates
-    const unsubscribe = setupWorkspaceListeners();
+    const unsubscribe = setupWorkspaceListeners(user.uid, sessionIdRef.current);
     
     // Safety timeout to ensure loading state doesn't get stuck
     const safetyTimeout = setTimeout(() => {
@@ -201,7 +206,7 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
         unsubscribeRef.current = null;
       }
     };
-  }, [user, setupWorkspaceListeners]);
+  }, [user, setupWorkspaceListeners, sessionIdRef.current]);
   
   // Refresh workspaces manually
   const refreshWorkspaces = useCallback(async (): Promise<void> => {

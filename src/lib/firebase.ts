@@ -41,12 +41,19 @@ export const connectionMonitor = new ConnectionMonitor({
 });
 
 // Add listeners for connection changes
+let lastOnlineTime = 0;
+const ONLINE_NOTIFICATION_INTERVAL = 60000; // Only notify every 60 seconds when already online
+
 connectionMonitor.addListener((isOnline) => {
-  console.log(`Firebase connection status: ${isOnline ? 'online' : 'offline'}`);
+  const now = Date.now();
   
-  // If we're back online, try to reconnect
-  if (isOnline) {
-    // Force a reconnection to Firestore
+  // Only log and attempt reconnection if we're coming online for the first time
+  // or if sufficient time has passed since the last notification
+  if (isOnline && (now - lastOnlineTime > ONLINE_NOTIFICATION_INTERVAL)) {
+    console.log(`Firebase connection status: ${isOnline ? 'online' : 'offline'}`);
+    lastOnlineTime = now;
+    
+    // If we're back online, try to reconnect
     try {
       console.log('Attempting to reconnect to Firestore...');
       // Firebase SDK automatically handles reconnection
@@ -54,6 +61,9 @@ connectionMonitor.addListener((isOnline) => {
     } catch (error) {
       console.error('Error reconnecting to Firestore:', error);
     }
+  } else if (!isOnline) {
+    // Always log offline status
+    console.log('Firebase connection status: offline');
   }
 });
 

@@ -14,6 +14,7 @@ export class ConnectionMonitor {
   private instanceId: string;
   private logLevel: 'none' | 'error' | 'warn' | 'info' | 'debug';
   private isProd = process.env.NODE_ENV === 'production';
+  private _lastStatusChangeTime: number | null = null;
 
   constructor(options?: {
     pingIntervalMs?: number;
@@ -139,15 +140,26 @@ export class ConnectionMonitor {
    */
   private setOnlineStatus(isOnline: boolean): void {
     const statusChanged = this.isOnline !== isOnline;
-    this.isOnline = isOnline;
     
+    // Only proceed if status actually changed or it's returning to online state the first time
+    // (not repeatedly when already online)
     if (statusChanged) {
-      // Notify all listeners of the status change
-      for (const [id, callback] of this.listeners.entries()) {
-        try {
-          callback(isOnline);
-        } catch (error) {
-          this.log('error', `Error in listener ${id}:`, error);
+      this.isOnline = isOnline;
+      
+      // Store last status change time to prevent excessive notifications
+      const now = Date.now();
+      const lastStatusChange = this._lastStatusChangeTime || 0;
+      this._lastStatusChangeTime = now;
+      
+      // Prevent duplicate online notifications within 10 seconds
+      if (!isOnline || (isOnline && (now - lastStatusChange > 10000))) {
+        // Notify all listeners of the status change
+        for (const [id, callback] of this.listeners.entries()) {
+          try {
+            callback(isOnline);
+          } catch (error) {
+            this.log('error', `Error in listener ${id}:`, error);
+          }
         }
       }
       

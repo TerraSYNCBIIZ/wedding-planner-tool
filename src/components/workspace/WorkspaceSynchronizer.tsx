@@ -179,26 +179,37 @@ function WorkspaceSynchronizerCore() {
     if (!user || !currentWorkspaceId) return;
     
     let connectionListenerId = '';
+    let lastRefreshTime = 0;
+    const REFRESH_COOLDOWN_MS = 30000; // 30 seconds minimum between refreshes
+    
     try {
       connectionListenerId = connectionMonitor.addListener((isOnline) => {
         console.log(`Connection status changed: ${isOnline ? 'online' : 'offline'}`);
         
         // When coming back online, refresh data and register activity
         if (isOnline) {
-          console.log('Connection restored, refreshing data...');
-          registerTabActivity();
+          const now = Date.now();
           
-          refreshWorkspaces().catch(error => {
-            console.error('Error refreshing workspaces after reconnection:', error);
-            setErrorCount(prev => prev + 1);
-          });
-          
-          // Request other tabs to refresh as well
-          if (tabSyncRef.current) {
-            tabSyncRef.current.update({
-              type: 'refresh_request',
-              timestamp: Date.now()
+          // Only refresh if we haven't refreshed recently
+          if (now - lastRefreshTime > REFRESH_COOLDOWN_MS) {
+            console.log('Connection restored, refreshing data...');
+            lastRefreshTime = now;
+            registerTabActivity();
+            
+            refreshWorkspaces().catch(error => {
+              console.error('Error refreshing workspaces after reconnection:', error);
+              setErrorCount(prev => prev + 1);
             });
+            
+            // Request other tabs to refresh as well, but only if we're refreshing
+            if (tabSyncRef.current) {
+              tabSyncRef.current.update({
+                type: 'refresh_request',
+                timestamp: now
+              });
+            }
+          } else {
+            console.log(`Skipping refresh - last refresh was ${(now - lastRefreshTime) / 1000}s ago`);
           }
         }
       });
