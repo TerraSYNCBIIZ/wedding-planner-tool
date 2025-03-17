@@ -15,10 +15,9 @@ const nextConfig: NextConfig = {
   // Make sure images are properly optimized
   images: {
     domains: ['firebasestorage.googleapis.com'],
-    unoptimized: true, // Disable image optimization for static export
   },
-  // Let Netlify handle static optimization
-  output: 'export',
+  // Use server-side rendering instead of static export
+  // (removed output: 'export')
 };
 
 export default nextConfig;

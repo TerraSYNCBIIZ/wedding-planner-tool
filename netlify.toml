@@ -1,2 +1,13 @@
 # This is an empty config file to clear any previous Netlify configuration
 # The actual build settings should be configured in the Netlify dashboard 
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NEXT_USE_NETLIFY_EDGE = "true"
+  NODE_VERSION = "18"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs" 
