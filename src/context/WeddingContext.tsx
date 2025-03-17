@@ -460,12 +460,16 @@ export const WeddingProvider = ({ children }: { children: ReactNode }) => {
   const updateExistingContributor = async (id: string, data: Partial<Contributor>) => {
     if (!user || !currentWorkspaceId) return;
     try {
+      console.log('WeddingContext: Updating contributor in Firebase', { id, data, workspaceId: currentWorkspaceId });
       await updateContributor(currentWorkspaceId, id, data);
-      setContributors(prev => 
-        prev.map(contributor => 
+      console.log('WeddingContext: Firebase update successful, updating local state');
+      setContributors(prev => {
+        const updatedContributors = prev.map(contributor => 
           contributor.id === id ? { ...contributor, ...data } : contributor
-        )
-      );
+        );
+        console.log('WeddingContext: State updated with:', updatedContributors.find(c => c.id === id));
+        return updatedContributors;
+      });
     } catch (error) {
       console.error('Error updating contributor:', error);
     }

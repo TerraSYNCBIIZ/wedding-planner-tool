@@ -183,6 +183,7 @@ export const addContributor = async (workspaceId: string, contributor: Omit<Cont
 // Update a contributor
 export const updateContributor = async (workspaceId: string, id: string, contributor: Partial<Contributor>): Promise<void> => {
   try {
+    console.log('db-utils: Starting contributor update in Firestore', { workspaceId, id, contributor });
     const contributorRef = doc(firestore, `workspaces/${workspaceId}/contributors`, id);
     
     const updatedContributor = {
@@ -190,7 +191,9 @@ export const updateContributor = async (workspaceId: string, id: string, contrib
       updatedAt: Timestamp.now()
     };
     
+    console.log('db-utils: Calling updateDoc with:', updatedContributor);
     await updateDoc(contributorRef, updatedContributor);
+    console.log('db-utils: Firestore update completed successfully');
   } catch (error) {
     console.error('Error updating contributor:', error);
     throw error;

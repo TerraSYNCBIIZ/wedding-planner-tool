@@ -30,6 +30,8 @@ export default function EditContributorPage() {
     e.preventDefault();
     setError(null);
     
+    console.log('Form submitted with values:', { name, notes });
+    
     // Validation
     if (!name.trim()) {
       setError('Please enter a name for the contributor.');
@@ -39,10 +41,12 @@ export default function EditContributorPage() {
     setIsSubmitting(true);
     
     try {
+      console.log('Calling updateExistingContributor with:', { id, name: name.trim(), notes: notes.trim() || undefined });
       await updateExistingContributor(id, {
         name: name.trim(),
         notes: notes.trim() || undefined
       });
+      console.log('Update successful, redirecting to contributors page');
       router.push('/contributors');
     } catch (err) {
       console.error('Error updating contributor:', err);
@@ -77,7 +81,12 @@ export default function EditContributorPage() {
           </div>
         )}
         
-        <form onSubmit={handleSubmit}>
+        <form 
+          onSubmit={(e) => {
+            console.log('Form onSubmit triggered');
+            handleSubmit(e);
+          }}
+        >
           <div className="mb-4">
             <label htmlFor="name" className="block text-sm font-medium mb-1">Name</label>
             <input
@@ -107,7 +116,17 @@ export default function EditContributorPage() {
             <Link href="/contributors">
               <Button variant="outline" type="button">Cancel</Button>
             </Link>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button 
+              type="submit" 
+              disabled={isSubmitting}
+              onClick={(e) => {
+                console.log('Save button clicked');
+                if (!isSubmitting) {
+                  // This is a backup in case the form submit isn't triggering
+                  handleSubmit(e as unknown as React.FormEvent);
+                }
+              }}
+            >
               {isSubmitting ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>
