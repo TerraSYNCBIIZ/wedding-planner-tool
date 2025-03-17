@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useWedding } from '../../../../context/WeddingContext';
 import { Button } from '../../../../components/ui/Button';
 import Link from 'next/link';
+import type { Contributor } from '../../../../types';
 
 export default function EditContributorPage() {
   const { id } = useParams() as { id: string };
@@ -41,11 +42,17 @@ export default function EditContributorPage() {
     setIsSubmitting(true);
     
     try {
-      console.log('Calling updateExistingContributor with:', { id, name: name.trim(), notes: notes.trim() || undefined });
-      await updateExistingContributor(id, {
-        name: name.trim(),
-        notes: notes.trim() || undefined
-      });
+      console.log('Calling updateExistingContributor with:', { id, name: name.trim(), notes: notes.trim() || null });
+      const dataToUpdate: Partial<Contributor> = {
+        name: name.trim()
+      };
+      
+      // Only include notes field if it's not empty
+      if (notes.trim()) {
+        dataToUpdate.notes = notes.trim();
+      }
+      
+      await updateExistingContributor(id, dataToUpdate);
       console.log('Update successful, redirecting to contributors page');
       router.push('/contributors');
     } catch (err) {

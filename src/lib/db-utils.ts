@@ -186,8 +186,16 @@ export const updateContributor = async (workspaceId: string, id: string, contrib
     console.log('db-utils: Starting contributor update in Firestore', { workspaceId, id, contributor });
     const contributorRef = doc(firestore, `workspaces/${workspaceId}/contributors`, id);
     
+    // Filter out any undefined values which Firebase doesn't support
+    const filteredData = Object.entries(contributor).reduce((acc, [key, value]) => {
+      if (value !== undefined) {
+        acc[key] = value;
+      }
+      return acc;
+    }, {} as Record<string, unknown>);
+    
     const updatedContributor = {
-      ...contributor,
+      ...filteredData,
       updatedAt: Timestamp.now()
     };
     
