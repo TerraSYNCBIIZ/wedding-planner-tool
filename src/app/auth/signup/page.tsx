@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/Button';
@@ -14,9 +14,56 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [redirectTo, setRedirectTo] = useState<string | null>(null);
+  const [authComplete, setAuthComplete] = useState(false);
   
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { signUp } = useAuth();
+  
+  useEffect(() => {
+    const redirect = searchParams?.get('redirect');
+    const token = searchParams?.get('token');
+    
+    if (redirect) {
+      console.log('Signup: Found redirect parameter:', redirect);
+      if (token) {
+        console.log('Signup: Found token parameter:', token);
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('invitationToken', token);
+        }
+        setRedirectTo(`${redirect}?token=${token}`);
+      } else {
+        setRedirectTo(redirect);
+      }
+    }
+  }, [searchParams]);
+  
+  useEffect(() => {
+    if (authComplete && redirectTo) {
+      console.log('Signup: Auth complete, redirecting to', redirectTo);
+      
+      // Check if this is an invitation redirect
+      const isInvitationRedirect = redirectTo?.includes('/invitation/accept');
+      
+      // If it's an invitation redirect, ensure we don't interfere with the flow
+      if (isInvitationRedirect) {
+        console.log('Signup: This is an invitation acceptance redirect, prioritizing it over setup wizard');
+      }
+      
+      const redirectTimer = setTimeout(() => {
+        router.push(redirectTo);
+        router.refresh();
+      }, 100);
+      
+      return () => clearTimeout(redirectTimer);
+    }
+    
+    if (authComplete) {
+      console.log('Signup: Auth complete, redirecting to setup wizard');
+      router.push('/setup-wizard');
+    }
+  }, [authComplete, redirectTo, router]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,8 +91,23 @@ export default function SignupPage() {
       // Create the user
       await signUp(email, password, displayName);
       
-      // After successful signup, redirect to setup wizard
-      router.push('/setup-wizard');
+      // Check if this is an invitation flow
+      const isInvitationFlow = redirectTo?.includes('/invitation/accept');
+      
+      // After successful signup, check if redirectTo is set
+      if (!redirectTo) {
+        console.log('Signup: No redirect parameter, going to setup wizard');
+        setRedirectTo('/setup-wizard');
+      } else {
+        console.log('Signup: Using provided redirect:', redirectTo);
+        
+        // If this is an invitation flow, log it for debugging
+        if (isInvitationFlow) {
+          console.log('Signup: This is an invitation flow, will prioritize invitation acceptance');
+        }
+      }
+      
+      setAuthComplete(true);
     } catch (error: unknown) {
       // Extract error message from Firebase
       let errorMessage = 'An error occurred during sign up';

@@ -37,6 +37,17 @@ export default function SetupWizardPage() {
       try {
         console.log('Setup wizard: Checking if user has completed setup', { user: user?.uid });
         
+        // Check if there's an invitation token in session storage
+        // If there is, redirect to the invitation acceptance page
+        if (typeof window !== 'undefined') {
+          const invitationToken = sessionStorage.getItem('invitationToken');
+          if (invitationToken) {
+            console.log('Setup wizard: Found invitation token in session storage, redirecting to invitation acceptance page');
+            router.push(`/invitation/accept?token=${invitationToken}`);
+            return;
+          }
+        }
+        
         // First check if the user has already completed setup (via cookie/localStorage)
         if (hasCompletedSetup()) {
           console.log('Setup wizard: User has completed setup (from localStorage/cookies), redirecting to dashboard');

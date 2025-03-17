@@ -53,7 +53,6 @@ export default function RootLayout({
           type="font/woff2" 
           crossOrigin="anonymous" 
         />
-        <link rel="stylesheet" href="/globals.css" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background min-h-screen`}

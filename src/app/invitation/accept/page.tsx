@@ -6,6 +6,7 @@ import { ParallaxBackground } from '@/components/ui/ParallaxBackground';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/Button';
 import Link from 'next/link';
+import { InvitationProcessor } from '@/components/invitation/InvitationProcessor';
 
 // Tell Next.js this is a dynamic route that should be rendered at request time
 export const dynamic = "force-dynamic";
@@ -26,43 +27,34 @@ function InvitationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading } = useAuth();
-  const [processingInvitation, setProcessingInvitation] = useState(false);
   const inviteToken = searchParams.get('token');
   
   useEffect(() => {
-    // If user is authenticated, process the invitation
-    if (!loading && user && inviteToken && !processingInvitation) {
-      setProcessingInvitation(true);
-      
-      // Store the invitation token in sessionStorage so it persists through redirects
-      sessionStorage.setItem('pendingInviteToken', inviteToken);
-      
-      // Simulate processing the invitation
-      console.log('Invitation: Processing invitation with token', inviteToken);
-      
-      // Redirect to dashboard where the token will be processed by a component there
-      const timer = setTimeout(() => {
-        router.push('/dashboard?processInvite=true');
-      }, 500);
-      
-      return () => clearTimeout(timer);
+    // Store the invitation token in sessionStorage so it persists through redirects
+    if (inviteToken) {
+      console.log('InvitationAccept: Storing invitation token in session storage:', inviteToken);
+      sessionStorage.setItem('invitationToken', inviteToken);
+    } else {
+      console.log('InvitationAccept: No invitation token in URL, checking session storage');
+      const storedToken = sessionStorage.getItem('invitationToken');
+      if (storedToken) {
+        console.log('InvitationAccept: Found invitation token in session storage:', storedToken);
+      } else {
+        console.log('InvitationAccept: No invitation token found in session storage');
+      }
     }
-  }, [loading, user, inviteToken, router, processingInvitation]);
+  }, [inviteToken]);
   
   // Show different UI based on authentication status
   if (loading) {
+    console.log('InvitationAccept: Auth is still loading');
     return <LoadingFallback />;
   }
   
-  if (processingInvitation) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-serif font-bold mb-6 text-blue-800">Processing your invitation...</h1>
-          <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-blue-800 mx-auto" />
-        </div>
-      </div>
-    );
+  if (user) {
+    console.log('InvitationAccept: User is authenticated, processing invitation');
+  } else {
+    console.log('InvitationAccept: User is not authenticated, showing sign in options');
   }
   
   return (
@@ -71,23 +63,20 @@ function InvitationContent() {
         <h1 className="text-2xl font-serif font-bold text-blue-800 text-center">
           Wedding Invitation
         </h1>
-        <p className="text-center text-blue-700">
-          Please sign in to view and respond to this invitation.
-        </p>
-        <div className="flex justify-center space-x-4">
-          {user ? (
-            <Button
-              onClick={() => {
-                if (inviteToken) {
-                  sessionStorage.setItem('pendingInviteToken', inviteToken);
-                }
-                router.push('/dashboard?processInvite=true');
-              }}
-            >
-              View Invitation
-            </Button>
-          ) : (
-            <>
+        
+        {user ? (
+          <>
+            <p className="text-center text-blue-700">
+              Processing your invitation...
+            </p>
+            <InvitationProcessor />
+          </>
+        ) : (
+          <>
+            <p className="text-center text-blue-700">
+              Please sign in to view and respond to this invitation.
+            </p>
+            <div className="flex justify-center space-x-4">
               <Link 
                 href={`/auth/login${inviteToken ? `?redirect=/invitation/accept&token=${inviteToken}` : ''}`}
                 className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
@@ -100,15 +89,17 @@ function InvitationContent() {
               >
                 Create Account
               </Link>
-            </>
-          )}
-        </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
 }
   
 export default function AcceptInvitationPage() {
+  console.log('InvitationAccept: Rendering invitation acceptance page');
+  
   return (
     <>
       <ParallaxBackground />

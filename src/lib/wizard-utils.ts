@@ -1,10 +1,20 @@
 /**
  * Check if the user has already completed the setup wizard
  * This checks both localStorage and cookies for evidence that a user has completed setup
+ * 
+ * If an invitation token is present, we'll bypass this check to allow the invitation flow to complete
  */
 export const hasCompletedSetup = (): boolean => {
   if (typeof window === 'undefined') {
     return false; // We're on the server
+  }
+  
+  // Check if there's an invitation token in session storage
+  // If there is, we want to bypass the setup wizard to allow the invitation flow to complete
+  const invitationToken = sessionStorage.getItem('invitationToken');
+  if (invitationToken) {
+    console.log('Invitation token found in session storage, bypassing hasCompletedSetup check');
+    return false; // Return false to allow the invitation flow to proceed
   }
   
   // First check if there's a cookie indicating setup completion
@@ -19,6 +29,7 @@ export const hasCompletedSetup = (): boolean => {
   
   // Debug info
   console.log('hasCompletedSetup check:', { 
+    hasInvitationToken: !!invitationToken,
     hasSetupCookie,
     hasWeddingIdCookie,
     weddingId,

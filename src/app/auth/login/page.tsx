@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/Button';
@@ -20,12 +20,42 @@ export default function LoginPage() {
   const [redirectTo, setRedirectTo] = useState<string | null>(null);
   
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { signIn, user } = useAuth();
+  
+  // Get redirect and token parameters from URL
+  useEffect(() => {
+    const redirect = searchParams?.get('redirect');
+    const token = searchParams?.get('token');
+    
+    if (redirect) {
+      console.log('Login: Found redirect parameter:', redirect);
+      // If we have both redirect and token, combine them
+      if (token) {
+        console.log('Login: Found token parameter:', token);
+        // Store token in session storage for later use
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('invitationToken', token);
+        }
+        setRedirectTo(`${redirect}?token=${token}`);
+      } else {
+        setRedirectTo(redirect);
+      }
+    }
+  }, [searchParams]);
   
   // Effect to handle navigation after auth state is confirmed
   useEffect(() => {
     if (authComplete && redirectTo) {
       console.log('Login: Auth complete, redirecting to', redirectTo);
+      
+      // Check if this is an invitation acceptance redirect
+      const isInvitationRedirect = redirectTo?.includes('/invitation/accept');
+      
+      // If it's an invitation redirect, ensure we don't interfere with the flow
+      if (isInvitationRedirect) {
+        console.log('Login: This is an invitation acceptance redirect, prioritizing it over dashboard');
+      }
       
       // Use a small timeout to ensure cookies are properly set before navigation
       const redirectTimer = setTimeout(() => {
@@ -34,6 +64,12 @@ export default function LoginPage() {
       }, 100);
       
       return () => clearTimeout(redirectTimer);
+    }
+    
+    if (authComplete) {
+      // Default redirect to dashboard if no specific redirect is set
+      console.log('Login: Auth complete, redirecting to dashboard');
+      router.push('/');
     }
   }, [authComplete, redirectTo, router]);
 
@@ -51,6 +87,16 @@ export default function LoginPage() {
       
       const userCredential = await signIn(email, password);
       console.log('Login: User signed in successfully', { userId: userCredential.uid });
+      
+      // Check if this is an invitation flow
+      const isInvitationFlow = redirectTo?.includes('/invitation/accept');
+      
+      // If this is an invitation flow, prioritize it over other checks
+      if (isInvitationFlow) {
+        console.log('Login: This is an invitation flow, prioritizing invitation acceptance');
+        setAuthComplete(true);
+        return;
+      }
       
       // Check if the user has already set up their wedding data in any form
       const userId = userCredential.uid;
@@ -81,7 +127,10 @@ export default function LoginPage() {
         setHasCompletedSetup(userId);
         
         setAuthComplete(true);
-        setRedirectTo('/');
+        // If no redirectTo is set yet, default to dashboard
+        if (!redirectTo) {
+          setRedirectTo('/');
+        }
         return;
       }
       
@@ -116,14 +165,23 @@ export default function LoginPage() {
         setHasCompletedSetup('member');
         
         setAuthComplete(true);
-        setRedirectTo('/');
+        // If no redirectTo is set yet, default to dashboard
+        if (!redirectTo) {
+          setRedirectTo('/');
+        }
         return;
       }
       
       // If no wedding data or memberships exist, redirect to setup wizard
-      console.log('Login: No wedding data or memberships found, redirecting to setup wizard');
+      // unless a specific redirect is set (like for invitation acceptance)
+      console.log('Login: No wedding data or memberships found');
+      if (!redirectTo) {
+        console.log('Login: No redirect parameter, going to setup wizard');
+        setRedirectTo('/setup-wizard');
+      } else {
+        console.log('Login: Using provided redirect:', redirectTo);
+      }
       setAuthComplete(true);
-      setRedirectTo('/setup-wizard');
     } catch (error: unknown) {
       // Extract error message from Firebase
       let errorMessage = 'An error occurred during sign in';

@@ -18,6 +18,9 @@ export function middleware(request: NextRequest) {
   // Check for migration status
   const needsMigration = request.cookies.get('needsMigration')?.value === 'true';
   
+  // Check for invitation token in the URL
+  const invitationToken = request.nextUrl.searchParams.get('token');
+  
   // Skip middleware for static assets, API routes, and Next.js internals
   if (
     path.startsWith('/_next') || 
@@ -34,7 +37,8 @@ export function middleware(request: NextRequest) {
     hasAuth: !!authToken,
     hasCompletedSetup: userHasCompletedSetup,
     currentWorkspaceId: currentWorkspaceId || 'none',
-    needsMigration: needsMigration
+    needsMigration: needsMigration,
+    hasInvitationToken: !!invitationToken
   });
   
   // Public routes that don't require auth
@@ -52,12 +56,42 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/migration', request.url));
   }
   
+  // Special handling for invitation acceptance
+  if (path === '/invitation/accept' || invitationToken) {
+    console.log('Middleware: Handling invitation flow');
+    
+    // If user is not authenticated, redirect to login with the token
+    if (!authToken && path !== '/auth/login' && path !== '/auth/signup') {
+      console.log('Middleware: Redirecting unauthenticated user to login with invitation token');
+      const loginUrl = new URL('/auth/login', request.url);
+      if (invitationToken) {
+        loginUrl.searchParams.set('redirect', '/invitation/accept');
+        loginUrl.searchParams.set('token', invitationToken);
+      }
+      return NextResponse.redirect(loginUrl);
+    }
+    
+    // If user is authenticated and on the invitation acceptance page, allow them to proceed
+    // even if they haven't completed setup
+    if (authToken && path === '/invitation/accept') {
+      console.log('Middleware: Allowing authenticated user to access invitation acceptance page');
+      return NextResponse.next();
+    }
+  }
+  
   // Setup wizard special handling
   if (path === '/setup-wizard') {
     // If user is not authenticated, redirect to login
     if (!authToken) {
       console.log('Middleware: Redirecting unauthenticated user from setup wizard to login');
       return NextResponse.redirect(new URL('/auth/login', request.url));
+    }
+    
+    // Check if there's an invitation token in the URL
+    // If there is, redirect to the invitation acceptance page
+    if (invitationToken) {
+      console.log('Middleware: Redirecting from setup wizard to invitation acceptance page');
+      return NextResponse.redirect(new URL(`/invitation/accept?token=${invitationToken}`, request.url));
     }
     
     // If user has completed setup or has a workspace, redirect to home/dashboard
@@ -90,7 +124,8 @@ export function middleware(request: NextRequest) {
   }
   
   // For public routes, if the user is authenticated and has completed setup, redirect to home
-  if (isPublicRoute && authToken && userHasCompletedSetup) {
+  // EXCEPT for the invitation acceptance route
+  if (isPublicRoute && authToken && userHasCompletedSetup && path !== '/invitation/accept') {
     console.log('Middleware: Redirecting authenticated user from public route to dashboard');
     return NextResponse.redirect(new URL('/', request.url));
   }
@@ -100,38 +135,45 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
   
-  // Allow API routes to function without redirects, but they'll need their own auth checks
-  if (path.startsWith('/api/')) {
-    return NextResponse.next();
-  }
-  
-  // Check if the user is logged in for protected routes
+  // For all other routes, require authentication
   if (!authToken) {
     console.log('Middleware: Redirecting unauthenticated user to login');
     
-    // Add the intended destination as a query param so we can redirect back after login
-    const redirectUrl = new URL('/auth/login', request.url);
-    if (path !== '/') {
-      redirectUrl.searchParams.set('redirect', path);
-    }
+    // Store the current URL to redirect back after login
+    const loginUrl = new URL('/auth/login', request.url);
+    loginUrl.searchParams.set('redirect', path);
     
-    return NextResponse.redirect(redirectUrl);
+    return NextResponse.redirect(loginUrl);
   }
   
-  // For all non-setup-wizard routes, check if setup is completed or user has a workspace
-  if (path !== '/setup-wizard' && !userHasCompletedSetup) {
+  // For authenticated users who haven't completed setup, redirect to setup wizard
+  // EXCEPT if they're accessing the invitation acceptance page
+  if (!userHasCompletedSetup && path !== '/invitation/accept') {
+    // Check if there's an invitation token in the URL
+    // If there is, redirect to the invitation acceptance page
+    if (invitationToken) {
+      console.log('Middleware: Redirecting to invitation acceptance page');
+      return NextResponse.redirect(new URL(`/invitation/accept?token=${invitationToken}`, request.url));
+    }
+    
     console.log('Middleware: Redirecting user who has not completed setup to setup wizard');
     return NextResponse.redirect(new URL('/setup-wizard', request.url));
   }
   
-  // Allow access to all other routes
+  // Allow access to all other routes for authenticated users who have completed setup
   return NextResponse.next();
 }
 
 // Configure the middleware to run on specific paths
 export const config = {
   matcher: [
-    // Match all routes except static files and specific excluded paths
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 }; 
