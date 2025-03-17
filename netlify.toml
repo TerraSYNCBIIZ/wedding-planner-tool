@@ -1,8 +1,0 @@
-[build]
-  command = "npm run build"
-  publish = ".next"
-
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
-
-# Remove all redirects and let the Next.js plugin handle everything
