@@ -11,9 +11,22 @@ export function middleware(request: NextRequest) {
   // Also check for hasCompletedSetup and currentWorkspaceId cookies
   const hasCompletedSetup = request.cookies.get('hasCompletedSetup')?.value;
   const currentWorkspaceId = request.cookies.get('currentWorkspaceId')?.value;
+  const currentWeddingId = request.cookies.get('currentWeddingId')?.value;
   
-  // If user has a workspace ID, they should be considered as having completed setup
-  const userHasCompletedSetup = hasCompletedSetup === 'true' || !!currentWorkspaceId;
+  // Check if user has a valid workspace/wedding ID from any source
+  // If they do, they should be considered as having completed setup
+  const userHasCompletedSetup = 
+    hasCompletedSetup === 'true' || 
+    !!currentWorkspaceId || 
+    !!currentWeddingId;
+  
+  // Debug info for setup state
+  const setupState = {
+    hasCompletedSetup,
+    currentWorkspaceId,
+    currentWeddingId,
+    userHasCompletedSetup
+  };
   
   // Check for migration status
   const needsMigration = request.cookies.get('needsMigration')?.value === 'true';
@@ -39,6 +52,8 @@ export function middleware(request: NextRequest) {
     hasAuth: !!authToken,
     hasCompletedSetup: userHasCompletedSetup,
     currentWorkspaceId: currentWorkspaceId || 'none',
+    currentWeddingId: currentWeddingId || 'none',
+    setupState,
     needsMigration: needsMigration,
     hasInvitationToken: !!invitationToken
   });

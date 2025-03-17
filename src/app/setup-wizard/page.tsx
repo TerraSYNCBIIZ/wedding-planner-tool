@@ -22,6 +22,9 @@ export default function SetupWizardPage() {
   const [isChecking, setIsChecking] = useState(true);
   const { user, loading } = useAuth();
   const { createWorkspace } = useWorkspace();
+  const [step, setStep] = useState<number>(1);
+  const [coupleNames, setCoupleNames] = useState<string>('');
+  const [hasExistingWorkspaces, setHasExistingWorkspaces] = useState<boolean>(false);
   
   // Check authentication and redirect if needed
   useEffect(() => {
@@ -101,6 +104,27 @@ export default function SetupWizardPage() {
     
     checkUserSetup();
   }, [loading, user, router]);
+  
+  // Check localStorage for any sign of existing workspaces
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        // Look for any workspace-related data in localStorage
+        const keys = Object.keys(localStorage);
+        const workspaceKeys = keys.filter(key => 
+          key.includes('workspace_') || 
+          key.includes('currentWorkspaceId') ||
+          key.includes('initialWorkspaceLoadTriggered')
+        );
+        setHasExistingWorkspaces(workspaceKeys.length > 0);
+        
+        console.log('Setup wizard found potential existing workspaces:', 
+          workspaceKeys.length > 0 ? workspaceKeys : 'None');
+      } catch (e) {
+        console.error('Error checking localStorage for workspaces:', e);
+      }
+    }
+  }, []);
   
   // Define the wizard steps
   const wizardSteps = [
@@ -197,7 +221,29 @@ export default function SetupWizardPage() {
   }
   
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="container max-w-screen-md py-8">
+      <div className="text-center mb-8">
+        <h1 className="text-3xl font-bold">Welcome to FinWed</h1>
+        <p className="text-gray-600 mt-2">Let's set up your wedding planner</p>
+        
+        {hasExistingWorkspaces && (
+          <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+            <p className="text-blue-600 font-medium">
+              We detected you may have existing workspaces
+            </p>
+            <button 
+              type="button"
+              onClick={() => {
+                // Force set the completion flag and redirect to dashboard
+                setHasCompletedSetup(user?.uid || 'user');
+                router.push('/');
+              }}
+              className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
+              Skip Setup & Go to Dashboard
+            </button>
+          </div>
+        )}
+      </div>
       <WizardLayout 
         steps={wizardSteps}
         onComplete={handleWizardComplete}

@@ -20,12 +20,27 @@ export const hasCompletedSetup = (): boolean => {
   // First check if there's a cookie indicating setup completion
   const hasSetupCookie = document.cookie.includes('hasCompletedSetup=true');
   
-  // Also check if there's a wedding ID in cookies or localStorage
+  // Check for wedding/workspace IDs in cookies or localStorage
   const hasWeddingIdCookie = document.cookie.includes('currentWeddingId=');
   const weddingId = localStorage.getItem('currentWeddingId');
-  
-  // Also check if there's a workspace ID cookie, which means the user has access to a workspace
   const hasWorkspaceIdCookie = document.cookie.includes('currentWorkspaceId=');
+  const workspaceId = localStorage.getItem('currentWorkspaceId');
+  
+  // Check if user has any workspaces stored in localStorage
+  let hasWorkspaces = false;
+  try {
+    // Look for any workspace-related data in localStorage that would indicate 
+    // the user has existing workspaces
+    const keys = Object.keys(localStorage);
+    const workspaceKeys = keys.filter(key => 
+      key.includes('workspace_') || 
+      key.includes('currentWorkspaceId') ||
+      key.includes('initialWorkspaceLoadTriggered')
+    );
+    hasWorkspaces = workspaceKeys.length > 0;
+  } catch (e) {
+    console.error('Error checking localStorage for workspaces:', e);
+  }
   
   // Debug info
   console.log('hasCompletedSetup check:', { 
@@ -34,11 +49,18 @@ export const hasCompletedSetup = (): boolean => {
     hasWeddingIdCookie,
     weddingId,
     hasWorkspaceIdCookie,
+    workspaceId,
+    hasWorkspaces,
     cookies: document.cookie
   });
   
   // If any of these are true, consider setup as completed
-  return hasSetupCookie || hasWeddingIdCookie || Boolean(weddingId) || hasWorkspaceIdCookie;
+  return hasSetupCookie || 
+         hasWeddingIdCookie || 
+         Boolean(weddingId) || 
+         hasWorkspaceIdCookie || 
+         Boolean(workspaceId) ||
+         hasWorkspaces;
 };
 
 /**
