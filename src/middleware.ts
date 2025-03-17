@@ -27,7 +27,9 @@ export function middleware(request: NextRequest) {
     path.includes('/favicon.ico') ||
     path.includes('/__nextjs_') ||
     path.includes('/_vercel') ||
-    path.includes('.') // Skip files with extensions (.js, .css, etc.)
+    path.startsWith('/api') ||  // Skip all API routes
+    path.includes('.') || // Skip files with extensions (.js, .css, etc.)
+    request.nextUrl.host.includes('execute-api') // Skip AWS API Gateway calls
   ) {
     return NextResponse.next();
   }
