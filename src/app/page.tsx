@@ -15,6 +15,9 @@ import { useRouter } from 'next/navigation';
 import { firestore } from '@/lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { hasCompletedSetup, setHasCompletedSetup } from '@/lib/wizard-utils';
+import { TrendingDown } from 'lucide-react';
+import { PaymentDialog } from '@/components/dashboard/PaymentDialog';
+import type { Expense } from '@/types';
 
 export default function Home() {
   const { expenses, gifts, contributors, isLoading, getDashboardStats, exportData } = useWedding();
@@ -24,8 +27,18 @@ export default function Home() {
   const [checkingSetup, setCheckingSetup] = useState(true);
   const router = useRouter();
   
+  // Add state for payment dialog
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  
   // Add state for quick action panel
   const [quickActionExpanded, setQuickActionExpanded] = useState(false);
+
+  // Function to handle paying an expense
+  const handlePayExpense = (expense: Expense) => {
+    setSelectedExpense(expense);
+    setIsPaymentDialogOpen(true);
+  };
 
   // Check if the user has completed setup
   useEffect(() => {
@@ -512,6 +525,44 @@ export default function Home() {
           </div>
         </div>
         
+        {/* Budget Deficit/Surplus Card */}
+        <div className="card card-hover bg-white/90 rounded-xl shadow-md overflow-hidden border border-blue-200 mb-8">
+          <div className="p-6">
+            {/* Calculate budget deficit (how much more contributions are needed to meet the budget) */}
+            {(() => {
+              const totalContributions = contributors.reduce(
+                (sum, contributor) => sum + (contributor.totalGiftAmount || 0), 
+                0
+              );
+              const budgetDeficit = stats.totalExpenses - totalContributions;
+              const isDeficit = budgetDeficit > 0;
+              
+              return (
+                <>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className={`p-2 rounded-full ${isDeficit ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                      <TrendingDown size={24} />
+                    </div>
+                    <h3 className="text-lg font-medium text-blue-800">
+                      {isDeficit ? 'Budget Deficit' : 'Budget Surplus'}
+                    </h3>
+                  </div>
+                  
+                  <p className={`text-3xl font-serif font-bold ${isDeficit ? 'text-red-600' : 'text-green-600'} mb-2`}>
+                    {formatCurrency(Math.abs(budgetDeficit))}
+                  </p>
+                  
+                  <p className="text-sm text-blue-600">
+                    {isDeficit 
+                      ? 'Additional contributions needed to meet budget' 
+                      : 'Contributions exceed budget!'}
+                  </p>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+        
         {/* Financial Progress Bars - Simplified and Improved */}
         <div className="card bg-white/90 rounded-xl shadow-md p-6 border border-blue-200 mb-8">
           <h3 className="text-xl font-serif font-bold text-blue-800 mb-4">Financial Progress</h3>
@@ -540,8 +591,8 @@ export default function Home() {
                     }}
                   />
                 </div>
-        </div>
-        
+              </div>
+              
               {/* Contribution Usage */}
               <div className="mb-6">
                 <div className="flex justify-between items-center mb-2">
@@ -573,7 +624,7 @@ export default function Home() {
                     }}
                   />
                 </div>
-          </div>
+              </div>
               
               {/* Funds Summary */}
               <div>
@@ -587,7 +638,7 @@ export default function Home() {
                       )}
                     </div>
                     <div className="text-xs text-blue-600 mt-1">Unused contributions</div>
-            </div>
+                  </div>
                   <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
                     <div className="font-medium text-amber-800 mb-1">Remaining Budget</div>
                     <div className="font-bold text-amber-900">
@@ -662,79 +713,12 @@ export default function Home() {
                   })}
               </div>
             </div>
-            </div>
           </div>
-          
+        </div>
+        
         {/* Upcoming Payments */}
-        <div className="bg-white shadow rounded-xl overflow-hidden border border-blue-100 mb-12">
-          <div className="p-4 border-b border-blue-200 flex justify-between items-center bg-gradient-to-r from-blue-50 to-white">
-            <h3 className="text-lg font-serif font-bold text-blue-800 flex items-center">
-              <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <title>Calendar Icon</title>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              Upcoming Payments
-            </h3>
-            <Link href="/expenses" className="text-sm font-medium text-blue-700 hover:text-blue-900 transition-colors flex items-center">
-                View All
-              <svg className="h-4 w-4 ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                <title>Arrow Right Icon</title>
-                  <path d="M5 12h14M12 5l7 7-7 7" />
-                </svg>
-              </Link>
-            </div>
-          <div className="divide-y divide-gray-100">
-            {expenses.length > 0 ? (
-              expenses.filter(exp => 
-                calculatePaidAmount(exp) < exp.totalAmount && // Not fully paid
-                exp.dueDate && 
-                new Date(exp.dueDate) > new Date()
-              )
-              .sort((a, b) => 
-                new Date(a.dueDate || '').getTime() - new Date(b.dueDate || '').getTime()
-              )
-              .slice(0, 5) // Limit to 5 items
-              .map(expense => {
-                const totalPaid = calculatePaidAmount(expense);
-                const remainingAmount = expense.totalAmount - totalPaid;
-                const isPastDue = expense.dueDate && new Date(expense.dueDate) < new Date();
-                
-                return (
-                  <div key={expense.id} className="p-3 hover:bg-blue-50 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <Link href={`/expenses/${expense.id}`} className="block">
-                          <h4 className="text-sm font-medium text-blue-900 truncate">{expense.title}</h4>
-                          <div className="flex items-center mt-1">
-                            <span className="text-xs text-blue-700 mr-2">
-                              {formatCurrency(remainingAmount)} remaining
-                            </span>
-                            {expense.dueDate && (
-                              <span className={`text-xs ${isPastDue ? 'text-red-600 font-semibold' : 'text-blue-600'}`}>
-                                Due {new Date(expense.dueDate).toLocaleDateString()}
-                              </span>
-                            )}
-                          </div>
-                        </Link>
-                      </div>
-                      <Link href={`/expenses/${expense.id}`} className="ml-2">
-                        <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
-                          Pay
-                        </span>
-                      </Link>
-                    </div>
-                </div>
-                );
-              })
-            ) : (
-              <div className="p-4 text-center text-blue-800 text-sm">
-                No upcoming payments found. 
-                <Link href="/expenses/new" className="font-medium text-blue-700 hover:text-blue-900 ml-1">
-                  Add an expense
-                  </Link>
-                </div>
-              )}
-          </div>
+        <div className="mb-12">
+          <UpcomingPayments onPayExpense={handlePayExpense} />
         </div>
         
         {/* Workspace Membership (new component) */}
@@ -744,6 +728,18 @@ export default function Home() {
           </div>
         )}
       </div>
+      
+      {/* Payment Dialog */}
+      {selectedExpense && (
+        <PaymentDialog
+          isOpen={isPaymentDialogOpen}
+          onClose={() => {
+            setIsPaymentDialogOpen(false);
+            setSelectedExpense(null);
+          }}
+          expense={selectedExpense}
+        />
+      )}
     </div>
   );
 }

@@ -112,7 +112,23 @@ export default function ContributorsPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-          <span className="absolute left-3 top-2.5">🔍</span>
+          <span className="absolute left-3 top-2.5">
+            <svg 
+              className="h-4 w-4 text-gray-400" 
+              xmlns="http://www.w3.org/2000/svg" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2" 
+              strokeLinecap="round" 
+              strokeLinejoin="round"
+              aria-labelledby="searchIconTitle"
+            >
+              <title id="searchIconTitle">Search</title>
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          </span>
         </div>
       </div>
       

@@ -2,11 +2,16 @@
 
 import { useWedding } from '@/context/WeddingContext';
 import { Button } from '../ui/Button';
-import { CalendarClock, AlertCircle } from 'lucide-react';
+import { CalendarClock, AlertCircle, CreditCard } from 'lucide-react';
 import Link from 'next/link';
 import { calculatePaidAmount, calculateRemainingAmount, formatCurrency } from '@/lib/excel-utils';
+import type { Expense } from '@/types';
 
-export function UpcomingPayments() {
+interface UpcomingPaymentsProps {
+  onPayExpense?: (expense: Expense) => void;
+}
+
+export function UpcomingPayments({ onPayExpense }: UpcomingPaymentsProps) {
   const { expenses } = useWedding();
   
   // Filter expenses that are not fully paid
@@ -81,15 +86,31 @@ export function UpcomingPayments() {
                     />
                   </div>
                   
-                  {/* Due date if available */}
-                  {expense.dueDate && (
-                    <div className="mt-2 flex items-center">
-                      <CalendarClock size={14} className="text-blue-700 mr-1" />
-                      <span className="text-xs text-blue-700">
-                        Due: {new Date(expense.dueDate).toLocaleDateString()}
-                      </span>
-                    </div>
-                  )}
+                  <div className="mt-2 flex items-center justify-between">
+                    {/* Due date if available */}
+                    {expense.dueDate && (
+                      <div className="flex items-center">
+                        <CalendarClock size={14} className="text-blue-700 mr-1" />
+                        <span className="text-xs text-blue-700">
+                          Due: {new Date(expense.dueDate).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {/* Pay button */}
+                    {onPayExpense && (
+                      <Button 
+                        type="button"
+                        size="sm" 
+                        variant="outline" 
+                        className="text-xs bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                        onClick={() => onPayExpense(expense)}
+                      >
+                        <CreditCard className="h-3 w-3 mr-1" />
+                        Pay Now
+                      </Button>
+                    )}
+                  </div>
                 </div>
               );
             })}

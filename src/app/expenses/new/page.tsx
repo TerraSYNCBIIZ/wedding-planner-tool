@@ -3,12 +3,13 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWedding } from '../../../context/WeddingContext';
-import { Input } from '../../../components/ui/Input';
+import { TextField } from '../../../components/ui/TextField';
 import { Select } from '../../../components/ui/Select';
 import { Textarea } from '../../../components/ui/Textarea';
 import { Button } from '../../../components/ui/Button';
 import FormPageLayout from '../../../components/layouts/FormPageLayout';
 import type { ExpenseCategory } from '../../../types';
+import { CreditCard, Calendar, DollarSign, Building, FileText, Tag } from 'lucide-react';
 
 const EXPENSE_CATEGORIES: ExpenseCategory[] = [
   'venue',
@@ -30,7 +31,7 @@ const EXPENSE_CATEGORIES: ExpenseCategory[] = [
 
 export default function NewExpensePage() {
   const router = useRouter();
-  const { addNewExpense } = useWedding();
+  const { addNewExpense, customCategories } = useWedding();
   
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<ExpenseCategory | ''>('');
@@ -39,6 +40,12 @@ export default function NewExpensePage() {
   const [dueDate, setDueDate] = useState('');
   const [provider, setProvider] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Combine predefined categories with custom categories
+  const allCategories = [
+    ...EXPENSE_CATEGORIES,
+    ...customCategories?.map(cc => cc.name as ExpenseCategory) || []
+  ];
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -77,72 +84,103 @@ export default function NewExpensePage() {
       backLink="/expenses"
       backLinkText="Back to Expenses"
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <Input
-          label="Expense Title"
-          id="title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          error={errors.title}
-          required
-        />
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {/* Basic Information Section */}
+        <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
+          <h2 className="text-lg font-semibold text-blue-800 mb-4 flex items-center">
+            <CreditCard className="h-5 w-5 mr-2 text-blue-600" />
+            Basic Information
+          </h2>
+          
+          <div className="space-y-4">
+            <TextField
+              label="Expense Title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              error={errors.title}
+              placeholder="e.g., Venue Deposit, Catering Payment"
+              required
+            />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Select
+                label="Category"
+                value={category}
+                onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
+                error={errors.category}
+                options={allCategories.map(cat => ({
+                  value: cat,
+                  label: cat.charAt(0).toUpperCase() + cat.slice(1)
+                }))}
+                required
+              />
+              
+              <TextField
+                label="Total Amount"
+                type="number"
+                step="0.01"
+                value={totalAmount}
+                onChange={(e) => setTotalAmount(e.target.value)}
+                error={errors.totalAmount}
+                placeholder="0.00"
+                required
+              />
+            </div>
+          </div>
+        </div>
         
-        <Select
-          label="Category"
-          id="category"
-          value={category}
-          onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
-          error={errors.category}
-          options={EXPENSE_CATEGORIES.map(cat => ({
-            value: cat,
-            label: cat.charAt(0).toUpperCase() + cat.slice(1)
-          }))}
-          required
-        >
-          <option value="">Select a category</option>
-          {EXPENSE_CATEGORIES.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat.charAt(0).toUpperCase() + cat.slice(1)}
-            </option>
-          ))}
-        </Select>
+        {/* Vendor Information Section */}
+        <div className="bg-green-50 rounded-lg p-6 border border-green-200">
+          <h2 className="text-lg font-semibold text-green-800 mb-4 flex items-center">
+            <Building className="h-5 w-5 mr-2 text-green-600" />
+            Vendor Information
+          </h2>
+          
+          <div className="space-y-4">
+            <TextField
+              label="Provider/Vendor"
+              value={provider}
+              onChange={(e) => setProvider(e.target.value)}
+              placeholder="e.g., Grand Hotel, Delicious Catering"
+            />
+            
+            <TextField
+              label="Due Date"
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+            />
+          </div>
+        </div>
         
-        <Textarea
-          label="Description"
-          id="description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={3}
-        />
+        {/* Additional Details Section */}
+        <div className="bg-purple-50 rounded-lg p-6 border border-purple-200">
+          <h2 className="text-lg font-semibold text-purple-800 mb-4 flex items-center">
+            <FileText className="h-5 w-5 mr-2 text-purple-600" />
+            Additional Details
+          </h2>
+          
+          <Textarea
+            label="Description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={4}
+            placeholder="Add any notes or details about this expense..."
+          />
+        </div>
         
-        <Input
-          label="Total Amount"
-          id="totalAmount"
-          type="number"
-          step="0.01"
-          value={totalAmount}
-          onChange={(e) => setTotalAmount(e.target.value)}
-          error={errors.totalAmount}
-          required
-        />
-        
-        <Input
-          label="Due Date"
-          id="dueDate"
-          type="date"
-          value={dueDate}
-          onChange={(e) => setDueDate(e.target.value)}
-        />
-        
-        <Input
-          label="Provider/Vendor"
-          id="provider"
-          value={provider}
-          onChange={(e) => setProvider(e.target.value)}
-        />
-        
-        <div className="flex justify-end pt-4">
-          <Button type="submit">Save Expense</Button>
+        {/* Form Actions */}
+        <div className="flex justify-between items-center pt-4">
+          <Button 
+            type="button" 
+            onClick={() => router.push('/expenses')}
+            variant="outline"
+          >
+            Cancel
+          </Button>
+          <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+            Save Expense
+          </Button>
         </div>
       </form>
     </FormPageLayout>
