@@ -64,13 +64,18 @@ export const BudgetStep: React.FC<BudgetStepProps> = ({
   
   return (
     <div>
-      <h3 className="text-xl font-semibold text-gray-800 mb-6">Let's set up your wedding budget</h3>
+      <h3 className="text-xl font-semibold text-gray-800 mb-4">Let's set up your wedding budget</h3>
+      
+      <p className="text-gray-600 mb-6">
+        Setting a budget will help you track expenses and payments throughout your wedding planning process.
+        This information will be used to create your financial dashboard.
+      </p>
       
       <div className="space-y-6">
         {/* Total Budget Input */}
         <div>
           <label htmlFor="totalBudget" className="block text-sm font-medium text-gray-700 mb-1">
-            What's your total wedding budget?
+            What's your estimated total wedding budget?
           </label>
           <div className="mt-1 relative rounded-md shadow-sm">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -122,6 +127,31 @@ export const BudgetStep: React.FC<BudgetStepProps> = ({
               </option>
             ))}
           </select>
+        </div>
+        
+        {/* How Budget Will Be Used */}
+        <div className="bg-indigo-50 rounded-md p-4">
+          <h4 className="font-medium text-indigo-700 mb-2">How your budget will be used:</h4>
+          <ul className="space-y-2 text-sm text-indigo-800">
+            <li className="flex items-start">
+              <svg className="h-5 w-5 text-indigo-500 mr-2 mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              Displayed on your dashboard to track progress
+            </li>
+            <li className="flex items-start">
+              <svg className="h-5 w-5 text-indigo-500 mr-2 mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              Compared with your actual expenses to show surplus/deficit
+            </li>
+            <li className="flex items-start">
+              <svg className="h-5 w-5 text-indigo-500 mr-2 mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              Used to calculate remaining funds as expenses are added
+            </li>
+          </ul>
         </div>
         
         {/* Budget Tip */}

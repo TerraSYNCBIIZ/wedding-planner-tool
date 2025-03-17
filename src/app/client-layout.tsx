@@ -38,7 +38,7 @@ export default function ClientLayout({
                   <footer className="border-t py-6 bg-muted/30">
                     <div className="container flex flex-col sm:flex-row justify-between items-center">
                       <p className="text-sm text-muted-foreground">
-                        Wedding Finance Planner &copy; {new Date().getFullYear()}
+                        FinWed &copy; {new Date().getFullYear()}
                       </p>
                       <div className="flex items-center gap-4 mt-4 sm:mt-0">
                         <BackButton />

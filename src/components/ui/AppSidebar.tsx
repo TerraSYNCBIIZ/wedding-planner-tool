@@ -94,13 +94,20 @@ export function AppSidebar() {
         )}>
           <Link href="/" className="flex items-center">
             {isCollapsed ? (
-              <div className="text-primary text-2xl">✦</div>
+              <div className="flex items-center">
+                <img src="/favicon.ico" alt="FinWed" className="h-6 w-6" />
+              </div>
             ) : (
               <div className="flex items-center">
-                <span className="text-lg font-medium text-primary tracking-wide">
-                  Wedding Planner
-                </span>
-                <div className="ml-1.5 text-primary/40 text-xs">✦</div>
+                <div className="flex flex-col">
+                  <span className="text-xl font-semibold text-primary tracking-tight">
+                    FinWed
+                  </span>
+                  <span className="text-xs text-primary/70 font-light -mt-1">
+                    the financial tool for weddings and honeymoons
+                  </span>
+                </div>
+                <img src="/favicon.ico" alt="FinWed" className="ml-2 h-5 w-5" />
               </div>
             )}
           </Link>

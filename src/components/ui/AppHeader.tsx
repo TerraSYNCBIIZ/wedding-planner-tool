@@ -64,10 +64,15 @@ export function AppHeader() {
         {/* Logo at left */}
         <div className="flex-shrink-0">
           <Link href="/" className="flex items-center group">
-            <span className="text-lg font-medium text-primary tracking-wide group-hover:text-primary/80 transition-colors duration-300">
-              Wedding Planner
-            </span>
-            <div className="ml-1.5 text-primary/40 text-xs">✦</div>
+            <div className="flex flex-col">
+              <span className="text-xl font-semibold text-primary tracking-tight group-hover:text-primary/80 transition-colors duration-300">
+                FinWed
+              </span>
+              <span className="text-xs text-primary/70 font-light -mt-1">
+                the financial tool for weddings and honeymoons
+              </span>
+            </div>
+            <img src="/favicon.ico" alt="FinWed" className="ml-2 h-5 w-5" />
           </Link>
         </div>
 
@@ -172,52 +177,4 @@ export function AppHeader() {
               <Link
                 key={href}
                 href={href}
-                className={`block py-2 text-sm ${
-                  isActive(href) 
-                    ? 'text-primary font-medium' 
-                    : 'text-foreground/80 hover:text-primary'
-                }`}
-                onClick={() => {
-                  setIsSectionMenuOpen(false);
-                }}
-              >
-                {label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Mobile Navigation Menu */}
-      {isMenuOpen && (
-        <nav className="md:hidden bg-white/95 border-t border-primary/10 shadow-inner backdrop-blur-sm">
-          <div className="px-6 py-3">
-            <ul className="space-y-3">
-              {navLinks.map(({ href, label }) => (
-                <li key={href}>
-                  <Link
-                    href={href}
-                    className={`block py-2 text-sm relative ${
-                      isActive(href) 
-                        ? 'text-primary font-medium border-l border-primary pl-3' 
-                        : 'text-foreground/80 hover:text-primary hover:border-l hover:border-primary/30 hover:pl-3 transition-all duration-200'
-                    }`}
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    {label}
-                  </Link>
-                  {/* Simple separator */}
-                  {href !== '/profile' && (
-                    <div className="flex justify-center mt-3">
-                      <div className="h-px w-12 bg-primary/5" />
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </nav>
-      )}
-    </header>
-  );
-} 
+                className={`

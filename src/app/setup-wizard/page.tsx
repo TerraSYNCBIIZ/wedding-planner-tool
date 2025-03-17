@@ -6,12 +6,14 @@ import { WizardLayout } from '@/components/wizard/WizardLayout';
 import { WelcomeStep } from '@/components/wizard/WelcomeStep';
 import { BasicInfoStep } from '@/components/wizard/BasicInfoStep';
 import { BudgetStep } from '@/components/wizard/BudgetStep';
+import { QuickStartStep } from '@/components/wizard/QuickStartStep';
 import { CompletionStep } from '@/components/wizard/CompletionStep';
 import { firestore } from '@/lib/firebase';
 import { doc, setDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { hasCompletedSetup, setHasCompletedSetup } from '@/lib/wizard-utils';
 import { setCookie } from 'cookies-next';
 import { useAuth } from '@/context/AuthContext';
+import { useWedding } from '@/context/WeddingContext';
 import { useWorkspace } from '@/context/WorkspaceContext';
 
 export default function SetupWizardPage() {
@@ -119,6 +121,12 @@ export default function SetupWizardPage() {
       title: 'Budget',
       subtitle: 'Set your wedding budget',
       component: BudgetStep
+    },
+    {
+      key: 'quick-start',
+      title: 'Quick Start',
+      subtitle: 'Set up expenses and contributors',
+      component: QuickStartStep
     },
     {
       key: 'completion',

@@ -22,8 +22,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Wedding Finance Planner",
-  description: "A tactical tool for planning and tracking wedding finances",
+  title: "FinWed - Financial Tool for Weddings",
+  description: "The financial tool for weddings and honeymoons - Plan, track, and manage your wedding finances with ease",
 };
 
 // This is the server part of the layout that exports metadata
