@@ -14,7 +14,7 @@ const nextConfig = {
   // Make sure images are properly optimized
   images: {
     domains: ['firebasestorage.googleapis.com'],
-    unoptimized: true, // Set to true for static exports
+    unoptimized: false, // Changed to false to allow Next.js to optimize images
   },
   // Ensure CSS is properly loaded
   poweredByHeader: false,
@@ -25,11 +25,11 @@ const nextConfig = {
     optimizeServerReact: true,
     optimizePackageImports: ['lucide-react']
   },
-  // Add output configuration for better Netlify compatibility
-  output: 'standalone',
+  // Changed from 'standalone' to export for better Netlify compatibility
+  output: 'export',
   
   // Ensure static assets are properly handled
-  assetPrefix: process.env.NODE_ENV === 'production' ? undefined : undefined,
+  assetPrefix: process.env.NODE_ENV === 'production' ? 'https://weddingfinance.netlify.app' : '',
   
   // Configure trailing slash for consistent URL handling
   trailingSlash: false,

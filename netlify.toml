@@ -1,11 +1,11 @@
 [build]
   command = "npm run build"
-  publish = ".next"
+  publish = "out"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-# Handle Next.js static assets correctly with more comprehensive patterns
+# Handle Next.js static assets correctly
 [[headers]]
   for = "/_next/static/*"
   [headers.values]
@@ -36,16 +36,15 @@
 
 # Handle JavaScript chunks
 [[headers]]
-  for = "/_next/*.js"
+  for = "/*.js"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
-# Ensure all routes are handled by Next.js
+# Fallback for all routes to index.html for client-side routing
 [[redirects]]
   from = "/*"
-  to = "/.netlify/functions/nextjs-server"
+  to = "/index.html"
   status = 200
-  force = true
 
 # Add specific redirects for common static assets
 [[redirects]]
