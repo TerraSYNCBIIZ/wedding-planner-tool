@@ -9,7 +9,8 @@ import {
   CheckCircle, 
   AlertTriangle, 
   Wallet,
-  PieChart 
+  PieChart,
+  TrendingDown
 } from 'lucide-react';
 
 export function FinancialSummary() {
@@ -30,6 +31,9 @@ export function FinancialSummary() {
   
   // Calculate funds allocation (how much of the contributions is left unallocated)
   const unallocatedFunds = totalContributions - totalPaid;
+  
+  // Calculate budget deficit (how much more contributions are needed to meet the budget)
+  const budgetDeficit = totalBudget - totalContributions;
   
   // Format all currency with the correct currency setting
   const formatMoneyValue = (value: number) => formatCurrency(value, settings.currency);
@@ -85,6 +89,24 @@ export function FinancialSummary() {
             <div>
               <p className="text-sm font-medium text-blue-700">Total Contributions</p>
               <p className="text-xl font-bold text-blue-900">{formatMoneyValue(totalContributions)}</p>
+            </div>
+          </div>
+          
+          {/* Budget Deficit */}
+          <div className="p-4 bg-blue-50 rounded-lg flex items-start space-x-4">
+            <div className={`p-2 rounded-full ${budgetDeficit <= 0 ? 'bg-green-200 text-green-700' : 'bg-red-200 text-red-700'}`}>
+              <TrendingDown size={20} />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-blue-700">Budget Deficit</p>
+              <p className={`text-xl font-bold ${budgetDeficit <= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {formatMoneyValue(Math.abs(budgetDeficit))}
+              </p>
+              <p className="text-xs text-gray-600">
+                {budgetDeficit <= 0 
+                  ? 'Contributions exceed budget!' 
+                  : 'Additional contributions needed'}
+              </p>
             </div>
           </div>
           
