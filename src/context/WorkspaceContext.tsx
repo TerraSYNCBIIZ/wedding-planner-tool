@@ -90,6 +90,73 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [currentWorkspaceId, registerTabActivity]);
   
+  // Setup workspace listeners function
+  const setupWorkspaceListeners = useCallback((userId: string, sessionId: string) => {
+    if (!userId) return null;
+    
+    console.log('Setting up workspace listeners for user:', userId, 'session:', sessionId);
+    
+    // Set up listeners for realtime updates
+    const unsubscribe = WorkspaceService.setupWorkspaceListeners(
+      userId,
+      (updatedWorkspaces) => {
+        console.log('Workspace listener update:', updatedWorkspaces.length, 'workspaces');
+        setWorkspaces(updatedWorkspaces);
+      }
+    );
+    
+    unsubscribeRef.current = unsubscribe;
+    return unsubscribe;
+  }, []);
+  
+  // Refresh workspaces manually
+  const refreshWorkspaces = useCallback(async (): Promise<void> => {
+    if (!user || isRefreshing) {
+      return;
+    }
+    
+    try {
+      setIsRefreshing(true);
+      setIsLoading(true);
+      console.log('Manually refreshing workspaces...');
+      
+      // Add a timeout to prevent hanging
+      const timeoutPromise = new Promise<WorkspaceDetails[]>((_, reject) => {
+        setTimeout(() => reject(new Error('Workspace refresh timeout')), 15000);
+      });
+      
+      // Race the actual fetch against the timeout
+      const updatedWorkspaces = await Promise.race([
+        WorkspaceService.getUserWorkspaces(user.uid),
+        timeoutPromise
+      ]);
+      
+      console.log('Manual refresh complete:', updatedWorkspaces.length, 'workspaces');
+      
+      setWorkspaces(updatedWorkspaces);
+      
+      // Set current workspace ID if not already set and we have workspaces
+      if (!currentWorkspaceIdRef.current && updatedWorkspaces.length > 0) {
+        const ownedWorkspace = updatedWorkspaces.find(w => w.isOwner);
+        if (ownedWorkspace) {
+          setCurrentWorkspaceId(ownedWorkspace.id);
+        } else if (updatedWorkspaces.length > 0) {
+          setCurrentWorkspaceId(updatedWorkspaces[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing workspaces:', error);
+      // Reset workspaces to empty array on error to prevent stale data
+      setWorkspaces([]);
+    } finally {
+      setIsLoading(false);
+      // Add a small delay before allowing another refresh
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 1000);
+    }
+  }, [user, isRefreshing]);
+  
   // Monitor connection status
   useEffect(() => {
     let lastRefreshTime = 0;
@@ -139,10 +206,9 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
               
               // Set up listeners again
               const uid = user.uid;
-              const sid = sessionIdRef.current;
               setTimeout(() => {
                 if (user) {
-                  setupWorkspaceListeners(uid, sid);
+                  setupWorkspaceListeners(uid, sessionIdRef.current);
                 }
               }, 100);
             }, 200);
@@ -168,27 +234,7 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
         clearTimeout(connectionStabilityTimer);
       }
     };
-  }, [user, sessionIdRef.current, setupWorkspaceListeners, refreshWorkspaces]);
-  
-  // Setup workspace listeners function
-  const setupWorkspaceListeners = useCallback((userId: string, sessionId: string) => {
-    if (!userId) return null;
-    
-    console.log('Setting up workspace listeners for user:', userId, 'session:', sessionId);
-    
-    // Set up listeners for realtime updates
-    const unsubscribe = WorkspaceService.setupWorkspaceListeners(
-      userId,
-      (updatedWorkspaces) => {
-        console.log('Workspace listener update:', updatedWorkspaces.length, 'workspaces');
-        setWorkspaces(updatedWorkspaces);
-      },
-      sessionIdRef.current
-    );
-    
-    unsubscribeRef.current = unsubscribe;
-    return unsubscribe;
-  }, []);
+  }, [user, refreshWorkspaces, setupWorkspaceListeners]);
   
   // Use the workspace listener to keep data up to date
   useEffect(() => {
@@ -241,55 +287,7 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
         unsubscribeRef.current = null;
       }
     };
-  }, [user, setupWorkspaceListeners, sessionIdRef.current]);
-  
-  // Refresh workspaces manually
-  const refreshWorkspaces = useCallback(async (): Promise<void> => {
-    if (!user || isRefreshing) {
-      return;
-    }
-    
-    try {
-      setIsRefreshing(true);
-      setIsLoading(true);
-      console.log('Manually refreshing workspaces...');
-      
-      // Add a timeout to prevent hanging
-      const timeoutPromise = new Promise<WorkspaceDetails[]>((_, reject) => {
-        setTimeout(() => reject(new Error('Workspace refresh timeout')), 15000);
-      });
-      
-      // Race the actual fetch against the timeout
-      const updatedWorkspaces = await Promise.race([
-        WorkspaceService.getUserWorkspaces(user.uid),
-        timeoutPromise
-      ]);
-      
-      console.log('Manual refresh complete:', updatedWorkspaces.length, 'workspaces');
-      
-      setWorkspaces(updatedWorkspaces);
-      
-      // Set current workspace ID if not already set and we have workspaces
-      if (!currentWorkspaceIdRef.current && updatedWorkspaces.length > 0) {
-        const ownedWorkspace = updatedWorkspaces.find(w => w.isOwner);
-        if (ownedWorkspace) {
-          setCurrentWorkspaceId(ownedWorkspace.id);
-        } else if (updatedWorkspaces.length > 0) {
-          setCurrentWorkspaceId(updatedWorkspaces[0].id);
-        }
-      }
-    } catch (error) {
-      console.error('Error refreshing workspaces:', error);
-      // Reset workspaces to empty array on error to prevent stale data
-      setWorkspaces([]);
-    } finally {
-      setIsLoading(false);
-      // Add a small delay before allowing another refresh
-      setTimeout(() => {
-        setIsRefreshing(false);
-      }, 1000);
-    }
-  }, [user, isRefreshing]);
+  }, [user, setupWorkspaceListeners]);
   
   // Create a new workspace
   const createWorkspace = useCallback(async (data: {
