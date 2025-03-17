@@ -311,7 +311,7 @@ export const WeddingProvider = ({ children }: { children: ReactNode }) => {
         return cleanPayment;
       });
       
-      const expenseRef = doc(firestore, `users/${currentWorkspaceId}/expenses`, expenseId);
+      const expenseRef = doc(firestore, `workspaces/${currentWorkspaceId}/expenses`, expenseId);
       await updateDoc(expenseRef, {
         paymentAllocations: firestorePayments,
         updatedAt: new Date().toISOString()
@@ -364,7 +364,7 @@ export const WeddingProvider = ({ children }: { children: ReactNode }) => {
         return cleanPayment;
       });
       
-      const expenseRef = doc(firestore, `users/${currentWorkspaceId}/expenses`, expenseId);
+      const expenseRef = doc(firestore, `workspaces/${currentWorkspaceId}/expenses`, expenseId);
       await updateDoc(expenseRef, {
         paymentAllocations: firestorePayments,
         updatedAt: new Date().toISOString()
@@ -415,7 +415,7 @@ export const WeddingProvider = ({ children }: { children: ReactNode }) => {
         return cleanPayment;
       });
       
-      const expenseRef = doc(firestore, `users/${currentWorkspaceId}/expenses`, expenseId);
+      const expenseRef = doc(firestore, `workspaces/${currentWorkspaceId}/expenses`, expenseId);
       await updateDoc(expenseRef, {
         paymentAllocations: firestorePayments,
         updatedAt: new Date().toISOString()
