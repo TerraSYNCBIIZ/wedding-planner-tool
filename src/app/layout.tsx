@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { WeddingProvider } from "../context/WeddingContext";
-import { AppHeader } from "../components/ui/AppHeader";
 import Link from "next/link";
 import { BackButton } from "../components/ui/BackButton";
 import { ParallaxBackground } from "../components/ui/ParallaxBackground";
@@ -17,6 +17,12 @@ const geistSans = Geist({
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
+  subsets: ["latin"],
+  display: 'swap',
+});
+
+const playfairDisplay = Playfair_Display({
+  variable: "--font-playfair",
   subsets: ["latin"],
   display: 'swap',
 });
@@ -55,7 +61,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background min-h-screen`}
+        className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} antialiased bg-background min-h-screen`}
       >
         <ClientLayout>
           {children}
