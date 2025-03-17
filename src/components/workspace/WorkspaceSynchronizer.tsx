@@ -180,37 +180,65 @@ function WorkspaceSynchronizerCore() {
     
     let connectionListenerId = '';
     let lastRefreshTime = 0;
-    const REFRESH_COOLDOWN_MS = 30000; // 30 seconds minimum between refreshes
+    const REFRESH_COOLDOWN_MS = 60000; // 60 seconds minimum between refreshes
+    const CONNECTION_STABILITY_THRESHOLD = 5000; // Wait this long before considering connection stable
+    let connectionStable = true;
+    let connectionStabilityTimer: NodeJS.Timeout | null = null;
     
     try {
       connectionListenerId = connectionMonitor.addListener((isOnline) => {
+        // Log the status change but don't act on it immediately
         console.log(`Connection status changed: ${isOnline ? 'online' : 'offline'}`);
         
-        // When coming back online, refresh data and register activity
-        if (isOnline) {
-          const now = Date.now();
-          
-          // Only refresh if we haven't refreshed recently
-          if (now - lastRefreshTime > REFRESH_COOLDOWN_MS) {
-            console.log('Connection restored, refreshing data...');
-            lastRefreshTime = now;
-            registerTabActivity();
-            
-            refreshWorkspaces().catch(error => {
-              console.error('Error refreshing workspaces after reconnection:', error);
-              setErrorCount(prev => prev + 1);
-            });
-            
-            // Request other tabs to refresh as well, but only if we're refreshing
-            if (tabSyncRef.current) {
-              tabSyncRef.current.update({
-                type: 'refresh_request',
-                timestamp: now
-              });
-            }
-          } else {
-            console.log(`Skipping refresh - last refresh was ${(now - lastRefreshTime) / 1000}s ago`);
+        // If we're going offline, clear any pending timers
+        if (!isOnline) {
+          connectionStable = false;
+          if (connectionStabilityTimer) {
+            clearTimeout(connectionStabilityTimer);
+            connectionStabilityTimer = null;
           }
+          return;
+        }
+        
+        // When coming back online, ensure connection is stable before refreshing
+        if (isOnline && !connectionStable) {
+          // Clear any existing timer
+          if (connectionStabilityTimer) {
+            clearTimeout(connectionStabilityTimer);
+          }
+          
+          // Set a timer to wait for connection stability
+          connectionStabilityTimer = setTimeout(() => {
+            connectionStable = true;
+            
+            // Only refresh if we haven't refreshed recently
+            const now = Date.now();
+            if (now - lastRefreshTime > REFRESH_COOLDOWN_MS) {
+              console.log('Connection restored and stable, refreshing data...');
+              lastRefreshTime = now;
+              
+              // Register our activity
+              registerTabActivity();
+              
+              // Refresh workspaces with a small delay
+              setTimeout(() => {
+                refreshWorkspaces().catch(error => {
+                  console.error('Error refreshing workspaces after reconnection:', error);
+                  setErrorCount(prev => prev + 1);
+                });
+              }, 500);
+              
+              // Request other tabs to refresh as well, but only if we're refreshing
+              if (tabSyncRef.current) {
+                tabSyncRef.current.update({
+                  type: 'refresh_request',
+                  timestamp: now
+                });
+              }
+            } else {
+              console.log(`Skipping refresh - last refresh was ${(now - lastRefreshTime) / 1000}s ago`);
+            }
+          }, CONNECTION_STABILITY_THRESHOLD);
         }
       });
     } catch (error) {
@@ -225,6 +253,10 @@ function WorkspaceSynchronizerCore() {
         } catch (error) {
           console.error('Error removing connection listener:', error);
         }
+      }
+      
+      if (connectionStabilityTimer) {
+        clearTimeout(connectionStabilityTimer);
       }
     };
   }, [user, currentWorkspaceId, registerTabActivity, refreshWorkspaces]);

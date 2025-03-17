@@ -42,29 +42,41 @@ export const connectionMonitor = new ConnectionMonitor({
 
 // Add listeners for connection changes
 let lastOnlineTime = 0;
+let lastOfflineTime = 0;
 const ONLINE_NOTIFICATION_INTERVAL = 60000; // Only notify every 60 seconds when already online
+const OFFLINE_NOTIFICATION_INTERVAL = 10000; // Only notify every 10 seconds when already offline
+let connectionStabilityTimeout: NodeJS.Timeout | null = null;
 
 connectionMonitor.addListener((isOnline) => {
   const now = Date.now();
   
-  // Only log and attempt reconnection if we're coming online for the first time
-  // or if sufficient time has passed since the last notification
-  if (isOnline && (now - lastOnlineTime > ONLINE_NOTIFICATION_INTERVAL)) {
-    console.log(`Firebase connection status: ${isOnline ? 'online' : 'offline'}`);
-    lastOnlineTime = now;
-    
-    // If we're back online, try to reconnect
-    try {
-      console.log('Attempting to reconnect to Firestore...');
-      // Firebase SDK automatically handles reconnection
-      // We can trigger a specific reconnection if needed in the future
-    } catch (error) {
-      console.error('Error reconnecting to Firestore:', error);
-    }
-  } else if (!isOnline) {
-    // Always log offline status
-    console.log('Firebase connection status: offline');
+  // Clear any pending stability timeout
+  if (connectionStabilityTimeout) {
+    clearTimeout(connectionStabilityTimeout);
+    connectionStabilityTimeout = null;
   }
+  
+  // Add a small delay to ensure connection state is stable
+  connectionStabilityTimeout = setTimeout(() => {
+    // Only log and attempt reconnection with appropriate cooldown
+    if (isOnline && (now - lastOnlineTime > ONLINE_NOTIFICATION_INTERVAL)) {
+      console.log('Firebase connection status: online');
+      lastOnlineTime = now;
+      
+      // If we're back online, try to reconnect
+      try {
+        console.log('Attempting to reconnect to Firestore...');
+        // Firebase SDK automatically handles reconnection
+        // We can trigger a specific reconnection if needed in the future
+      } catch (error) {
+        console.error('Error reconnecting to Firestore:', error);
+      }
+    } else if (!isOnline && (now - lastOfflineTime > OFFLINE_NOTIFICATION_INTERVAL)) {
+      // Always log offline status with cooldown
+      console.log('Firebase connection status: offline');
+      lastOfflineTime = now;
+    }
+  }, 2000); // Wait 2 seconds before acting on connection change
 });
 
 // Add window unload handler to clean up connections

@@ -93,47 +93,82 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
   // Monitor connection status
   useEffect(() => {
     let lastRefreshTime = 0;
-    const REFRESH_COOLDOWN_MS = 30000; // 30 seconds between refreshes
+    const REFRESH_COOLDOWN_MS = 60000; // 60 seconds between refreshes
+    const CONNECTION_STABILITY_THRESHOLD = 5000; // Wait 5 seconds for connection to stabilize
+    let connectionStabilityTimer: NodeJS.Timeout | null = null;
+    let connectionStable = true;
     
     const connectionListenerId = connectionMonitor.addListener((online) => {
+      // Always update the state
       setIsOnline(online);
       
-      // If we're back online, try to reconnect and refresh data
-      if (online && user) {
-        const now = Date.now();
-        
-        // Only perform refresh if we haven't done so recently
-        if (now - lastRefreshTime > REFRESH_COOLDOWN_MS) {
-          console.log('Connection restored, refreshing workspace data...');
-          lastRefreshTime = now;
-          
-          // Reset workspace listeners
-          if (unsubscribeRef.current) {
-            unsubscribeRef.current();
-            unsubscribeRef.current = null;
-          }
-          
-          // Set up listeners again with small delay to avoid race conditions
-          setTimeout(() => {
-            setupWorkspaceListeners(user.uid, sessionIdRef.current);
-          }, 100);
-          
-          // Refresh data manually with a small delay
-          setTimeout(() => {
-            refreshWorkspaces().catch(error => {
-              console.error('Error refreshing workspaces after reconnection:', error);
-            });
-          }, 500);
-        } else {
-          console.log(`Skipping workspace refresh - last refresh was ${(now - lastRefreshTime) / 1000}s ago`);
+      // If we're going offline, clear any pending timers
+      if (!online) {
+        connectionStable = false;
+        if (connectionStabilityTimer) {
+          clearTimeout(connectionStabilityTimer);
+          connectionStabilityTimer = null;
         }
+        return;
+      }
+      
+      // If we're back online, try to reconnect and refresh data after ensuring connection stability
+      if (online && user && !connectionStable) {
+        // Clear existing timer if any
+        if (connectionStabilityTimer) {
+          clearTimeout(connectionStabilityTimer);
+        }
+        
+        // Set a timer to wait for connection stability
+        connectionStabilityTimer = setTimeout(() => {
+          connectionStable = true;
+          const now = Date.now();
+          
+          // Only perform refresh if we haven't done so recently
+          if (now - lastRefreshTime > REFRESH_COOLDOWN_MS) {
+            console.log('Connection restored and stable, refreshing workspace data...');
+            lastRefreshTime = now;
+            
+            // Reset workspace listeners with a small delay to avoid race conditions
+            setTimeout(() => {
+              // Reset workspace listeners
+              if (unsubscribeRef.current) {
+                unsubscribeRef.current();
+                unsubscribeRef.current = null;
+              }
+              
+              // Set up listeners again
+              const uid = user.uid;
+              const sid = sessionIdRef.current;
+              setTimeout(() => {
+                if (user) {
+                  setupWorkspaceListeners(uid, sid);
+                }
+              }, 100);
+            }, 200);
+            
+            // Refresh data manually with a small delay
+            setTimeout(() => {
+              if (user) {
+                refreshWorkspaces().catch(error => {
+                  console.error('Error refreshing workspaces after reconnection:', error);
+                });
+              }
+            }, 500);
+          } else {
+            console.log(`Skipping workspace refresh - last refresh was ${(now - lastRefreshTime) / 1000}s ago`);
+          }
+        }, CONNECTION_STABILITY_THRESHOLD);
       }
     });
     
     return () => {
       connectionMonitor.removeListener(connectionListenerId);
+      if (connectionStabilityTimer) {
+        clearTimeout(connectionStabilityTimer);
+      }
     };
-  }, [user, sessionIdRef.current]);
+  }, [user, sessionIdRef.current, setupWorkspaceListeners, refreshWorkspaces]);
   
   // Setup workspace listeners function
   const setupWorkspaceListeners = useCallback((userId: string, sessionId: string) => {
