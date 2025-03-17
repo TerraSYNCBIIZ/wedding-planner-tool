@@ -10,15 +10,6 @@ import { format } from 'date-fns';
 import { calculatePaidAmount, calculateRemainingAmount } from '@/lib/excel-utils';
 import type { Expense, PaymentAllocation } from '@/types';
 
-// Add export for generateStaticParams to fix build error
-// This is needed for Netlify deployment, but won't actually be used at runtime
-// since this is a client component with dynamic data
-export const generateStaticParams = async () => {
-  // Return an empty array as this is a client component
-  // that will be generated at runtime
-  return [];
-};
-
 export default function ExpensePaymentsPage() {
   const params = useParams();
   const router = useRouter();
