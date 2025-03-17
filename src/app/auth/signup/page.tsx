@@ -1,11 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { AlertTriangle, UserPlus } from 'lucide-react';
+
+// Client component that uses useSearchParams
+function SignupForm({ onParamsReady }: { onParamsReady: (redirect: string | null, token: string | null) => void }) {
+  const searchParams = useSearchParams();
+  const redirect = searchParams?.get('redirect');
+  const token = searchParams?.get('token');
+  
+  useEffect(() => {
+    onParamsReady(redirect, token);
+  }, [redirect, token, onParamsReady]);
+  
+  return null;
+}
 
 export default function SignupPage() {
   const [displayName, setDisplayName] = useState('');
@@ -18,13 +31,10 @@ export default function SignupPage() {
   const [authComplete, setAuthComplete] = useState(false);
   
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { signUp } = useAuth();
   
-  useEffect(() => {
-    const redirect = searchParams?.get('redirect');
-    const token = searchParams?.get('token');
-    
+  // Handle search params from the client component
+  const handleParamsReady = (redirect: string | null, token: string | null) => {
     if (redirect) {
       console.log('Signup: Found redirect parameter:', redirect);
       if (token) {
@@ -37,7 +47,7 @@ export default function SignupPage() {
         setRedirectTo(redirect);
       }
     }
-  }, [searchParams]);
+  };
   
   useEffect(() => {
     if (authComplete && redirectTo) {
@@ -134,6 +144,11 @@ export default function SignupPage() {
   
   return (
     <div className="max-w-md w-full mx-auto px-4">
+      {/* Suspense boundary for useSearchParams */}
+      <Suspense fallback={null}>
+        <SignupForm onParamsReady={handleParamsReady} />
+      </Suspense>
+      
       <div className="bg-white/90 backdrop-blur shadow-xl rounded-lg border border-blue-200 p-8">
         <div className="text-center mb-6">
           <h2 className="text-2xl font-bold text-blue-900 mb-2">

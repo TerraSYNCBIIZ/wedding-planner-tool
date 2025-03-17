@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
@@ -11,6 +11,19 @@ import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firesto
 import { setHasCompletedSetup } from '@/lib/wizard-utils';
 import { setCookie } from 'cookies-next';
 
+// Client component that uses useSearchParams
+function LoginForm({ onParamsReady }: { onParamsReady: (redirect: string | null, token: string | null) => void }) {
+  const searchParams = useSearchParams();
+  const redirect = searchParams?.get('redirect');
+  const token = searchParams?.get('token');
+  
+  useEffect(() => {
+    onParamsReady(redirect, token);
+  }, [redirect, token, onParamsReady]);
+  
+  return null;
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,14 +33,10 @@ export default function LoginPage() {
   const [redirectTo, setRedirectTo] = useState<string | null>(null);
   
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { signIn, user } = useAuth();
   
-  // Get redirect and token parameters from URL
-  useEffect(() => {
-    const redirect = searchParams?.get('redirect');
-    const token = searchParams?.get('token');
-    
+  // Handle search params from the client component
+  const handleParamsReady = (redirect: string | null, token: string | null) => {
     if (redirect) {
       console.log('Login: Found redirect parameter:', redirect);
       // If we have both redirect and token, combine them
@@ -42,7 +51,7 @@ export default function LoginPage() {
         setRedirectTo(redirect);
       }
     }
-  }, [searchParams]);
+  };
   
   // Effect to handle navigation after auth state is confirmed
   useEffect(() => {
@@ -210,6 +219,11 @@ export default function LoginPage() {
   
   return (
     <div className="max-w-md w-full mx-auto px-4">
+      {/* Suspense boundary for useSearchParams */}
+      <Suspense fallback={null}>
+        <LoginForm onParamsReady={handleParamsReady} />
+      </Suspense>
+      
       <div className="bg-white/90 backdrop-blur shadow-xl rounded-lg border border-blue-200 p-8">
         <div className="text-center mb-6">
           <h2 className="text-2xl font-bold text-blue-900 mb-2">
