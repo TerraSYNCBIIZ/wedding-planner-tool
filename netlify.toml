@@ -8,6 +8,20 @@
 [build.environment]
   NEXT_USE_NETLIFY_EDGE = "true"
   NODE_VERSION = "18"
+  # Enable brotli compression for improved performance
+  COMPRESS_BROTLI = "true"
+  # Turn on webpack verbose to debug any issues (if needed)
+  NEXT_WEBPACK_LOGGING = "verbose"
 
 [[plugins]]
-  package = "@netlify/plugin-nextjs" 
+  package = "@netlify/plugin-nextjs"
+
+# Add custom headers to ensure CSS is loaded correctly
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    Cache-Control = "public, max-age=3600"
+    # Ensure styles can be loaded
+    Content-Security-Policy = "style-src 'self' 'unsafe-inline'; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https://firebasestorage.googleapis.com; connect-src 'self' https://*.googleapis.com; frame-ancestors 'none'; default-src 'self';" 

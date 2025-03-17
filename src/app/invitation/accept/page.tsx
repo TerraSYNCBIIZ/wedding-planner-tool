@@ -8,16 +8,16 @@ export const dynamic = "force-dynamic";
 
 // Loading fallback UI
 function LoadingFallback() {
-  return (
+    return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="text-center">
         <h1 className="text-2xl font-serif font-bold mb-6 text-blue-800">Loading invitation...</h1>
         <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-blue-800 mx-auto" />
       </div>
-    </div>
-  );
+      </div>
+    );
 }
-
+  
 export default function AcceptInvitationPage() {
   return (
     <>
@@ -38,8 +38,8 @@ export default function AcceptInvitationPage() {
               >
                 Sign In
               </a>
+              </div>
             </div>
-          </div>
         </div>
       </Suspense>
     </>
