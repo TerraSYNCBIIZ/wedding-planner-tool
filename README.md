@@ -1,125 +1,141 @@
-# Wedding Finance Planner
+# Wedding Planner Tool
 
-A tactical tool for planning and tracking wedding finances. This application helps couples track expenses, allocate payments, and manage their wedding budget effectively.
+A collaborative platform for planning your wedding with friends and family. Manage workspaces, invite collaborators, track expenses, manage guest lists, and more!
 
 ## Features
 
-- **Expense Tracking**: Track expenses across multiple categories (venue, food, drink, photography, dress, decorations, sound, and miscellaneous)
-- **Payment Allocation**: Assign who has paid or will pay for each expense
-- **Payment Scheduling**: Track payment deadlines and see upcoming payments
-- **Gift Allocation**: Track monetary gifts and allocate them across different expenses
-- **Summary Dashboard**: Get a quick overview of your wedding finances
-- **Detailed Tables**: View comprehensive details of all expenses
-- **Excel Export**: Generate reports in Excel format for record-keeping
-- **Customizable Categories**: Add your own expense categories as needed
-- **Firebase Integration**: All data is stored in Firebase Realtime Database
+### Workspace Management
+- Create multiple wedding workspaces
+- Invite collaborators with different permission levels
+- Real-time collaboration with team members
 
-## Technology Stack
+### Comprehensive Wedding Planning
+- Track expenses and budgets
+- Manage guest lists and RSVPs
+- Create to-do lists and assign tasks
+- Keep notes and important information
+- Track vendors and contacts
 
-- **Frontend**: Next.js with TypeScript
-- **Styling**: Tailwind CSS
-- **Icons**: React Icons and Heroicons
-- **Database**: Firebase Realtime Database
-- **Date Handling**: date-fns
-- **Excel Export**: xlsx
+### Collaboration Tools
+- Role-based permissions (Owners, Editors, Viewers)
+- Real-time updates across devices
+- Invitation system for adding collaborators
+- Activity tracking for team members
 
 ## Getting Started
 
-### Prerequisites
+1. **Create an Account**: Sign up for an account using your email address
+2. **Create a Workspace**: Set up your first wedding workspace with basic information
+3. **Invite Collaborators**: Add team members to help you with the planning process
+4. **Start Planning**: Use the various tools to begin planning your perfect wedding!
 
-- Node.js (v16 or newer)
-- npm or yarn
-- Firebase account
+## User Roles
 
-### Installation
+### Workspace Owner
+- Full control over the workspace
+- Can invite and remove members
+- Can change member roles
+- Can delete the workspace
 
-1. Clone the repository
-```bash
-git clone https://github.com/yourusername/wedding-planner-tool.git
-cd wedding-planner-tool
-```
+### Editor
+- Can add, edit, and delete content
+- Cannot manage workspace members
+- Cannot delete the workspace
 
-2. Install dependencies
-```bash
-npm install
-# or
-yarn install
-```
+### Viewer
+- Can view all content
+- Cannot make changes to content
+- Cannot manage workspace members
 
-3. Set up Firebase
-   - Create a Firebase project at [firebase.google.com](https://firebase.google.com)
-   - Add a web app to your Firebase project
-   - Enable Realtime Database in your Firebase project
-   - Copy your Firebase configuration (apiKey, authDomain, etc.)
-   - Create a `.env.local` file in the root directory and add your Firebase configuration:
+## Workspace Features
 
-```
-NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_auth_domain
-NEXT_PUBLIC_FIREBASE_DATABASE_URL=your_database_url
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_storage_bucket
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
-NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
-NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=your_measurement_id
-```
+### Dashboard
+The dashboard provides an overview of your wedding planning progress, including:
 
-4. Run the development server
-```bash
-npm run dev
-# or
-yarn dev
-```
+- Recent activities
+- Upcoming tasks and deadlines
+- Budget overview
+- Quick access to frequently used features
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application
+### Expenses
+Track and manage all your wedding expenses:
 
-## Usage
+- Categorize expenses
+- Set and monitor budgets
+- Track payments and remaining balances
+- Generate expense reports
 
-### Firebase vs Demo Mode
+### Guest List
+Manage your wedding guests easily:
 
-The application has two modes:
-- **Firebase Mode**: All data is stored in your Firebase Realtime Database
-- **Demo Mode**: Uses mock data for demonstration purposes
+- Track RSVPs
+- Organize guests by groups
+- Manage plus-ones
+- Track dietary restrictions and seating preferences
 
-You can toggle between these modes using the button in the top-right corner of the application.
+### Tasks
+Stay organized with task management:
 
-### First-time Setup
+- Create to-do lists
+- Assign tasks to team members
+- Set deadlines and priorities
+- Track progress and completed tasks
 
-When you first run the application in Firebase mode with an empty database, it will automatically populate the database with sample data to help you get started. You can then modify this data as needed.
+### Vendors
+Keep track of all your wedding vendors:
 
-### Adding Expenses
+- Store contact information
+- Track contracts and payments
+- Store documents and agreements
+- Manage communication history
 
-1. Navigate to the Expenses page
-2. Click "Add Expense"
-3. Fill in the expense details (title, amount, category, etc.)
-4. Click "Save"
+## Data Privacy and Security
 
-### Allocating Payments
+- All your data is securely stored using Firebase
+- Role-based access controls ensure only authorized users can access your information
+- Your information is never shared with third parties without your consent
 
-1. Navigate to the Expenses page
-2. Find the expense you want to allocate a payment to
-3. Click "View Details"
-4. Under the "Payment Allocations" section, click "Add Payment"
-5. Select the contributor, enter the amount, and set the date
-6. Click "Save"
+## Account Management
 
-### Tracking Gifts
+### Updating Your Profile
+To update your profile information:
 
-1. Navigate to the Gifts page
-2. Click "Add Gift"
-3. Enter the gift details (from person, amount, date, etc.)
-4. Click "Save"
-5. To allocate a gift to an expense, click "View Details" on the gift
-6. Click "Allocate to Expense"
-7. Select the expense and enter the amount
-8. Click "Save"
+1. Click on your avatar in the top right corner
+2. Select "Profile" from the dropdown menu
+3. Update your information and click "Save"
 
-### Exporting Data
+### Password Reset
+If you forget your password:
 
-1. Navigate to the Dashboard
-2. Click "Export to Excel"
-3. Save the Excel file to your computer
+1. Click "Forgot Password" on the login screen
+2. Enter your email address
+3. Follow the instructions sent to your email
 
-## License
+## FAQ
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+### Can I create multiple wedding workspaces?
+Yes, you can create as many workspaces as you need. This is useful if you're planning multiple events or helping others plan their weddings.
+
+### How do I delete my account?
+To delete your account:
+
+1. Go to your profile settings
+2. Scroll to the bottom and click "Delete Account"
+3. Confirm your decision
+
+Note that this will permanently delete all your data and cannot be undone.
+
+### Is there a mobile app?
+Currently, the platform is optimized for web browsers but works well on mobile devices through responsive design. Dedicated mobile apps are planned for the future.
+
+## Support
+
+If you need assistance, please contact us at support@weddingplannertool.com or use the "Help" section within the application.
+
+## Terms of Service
+
+By using this application, you agree to our [Terms of Service](https://weddingplannertool.com/terms) and [Privacy Policy](https://weddingplannertool.com/privacy).
+
+## Credits
+
+Developed with ❤️ for couples planning their special day.

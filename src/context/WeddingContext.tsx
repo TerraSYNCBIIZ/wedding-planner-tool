@@ -21,7 +21,8 @@ import {
   deleteGiftAllocation,
   addCustomCategory,
   deleteCustomCategory,
-  updateSettings
+  updateSettings,
+  generateId
 } from '../lib/db-utils';
 import { exportToExcel } from '../lib/excel-utils';
 import type {
@@ -32,12 +33,13 @@ import type {
   Settings,
   GiftAllocation,
   DashboardStats,
-  ExpenseCategory
+  ExpenseCategory,
+  PaymentAllocation
 } from '../types';
 import { calculatePaidAmount, calculateRemainingAmount } from '../lib/excel-utils';
 import { testFirestoreConnection } from '../lib/test-firebase';
 import { useAuth } from './AuthContext';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { firestore } from '../lib/firebase';
 
 // Define the context type
@@ -54,6 +56,11 @@ interface WeddingContextType {
   addNewExpense: (expense: Omit<Expense, 'id' | 'createdAt' | 'updatedAt' | 'paymentAllocations'>) => Promise<void>;
   updateExistingExpense: (id: string, data: Partial<Expense>) => Promise<void>;
   removeExpense: (id: string) => Promise<void>;
+  
+  // Payment allocation functions
+  addPaymentToExpense: (expenseId: string, payment: Omit<PaymentAllocation, 'id'>) => Promise<void>;
+  updatePaymentAllocation: (expenseId: string, paymentId: string, data: Partial<PaymentAllocation>) => Promise<void>;
+  removePaymentFromExpense: (expenseId: string, paymentId: string) => Promise<void>;
   
   // Contributor functions
   addNewContributor: (name: string) => Promise<void>;
@@ -209,6 +216,168 @@ export const WeddingProvider = ({ children }: { children: ReactNode }) => {
       setExpenses(prev => prev.filter(expense => expense.id !== id));
     } catch (error) {
       console.error('Error deleting expense:', error);
+      throw error;
+    }
+  };
+
+  // Payment allocation functions
+  const addPaymentToExpense = async (expenseId: string, payment: Omit<PaymentAllocation, 'id'>) => {
+    if (!user) return;
+    try {
+      // Find the expense
+      const expense = expenses.find(e => e.id === expenseId);
+      if (!expense) {
+        throw new Error(`Expense with id ${expenseId} not found`);
+      }
+      
+      // Create a new payment with ID
+      const newPayment: PaymentAllocation = {
+        ...payment,
+        id: generateId()
+      };
+      
+      // Add the payment to the expense's paymentAllocations array
+      const updatedPayments = [...expense.paymentAllocations, newPayment];
+      
+      // Update the expense in Firestore - make sure to sanitize the data
+      const firestorePayments = updatedPayments.map(p => {
+        // Create a clean object with no undefined values
+        const cleanPayment: {
+          id: string;
+          contributorId: string;
+          amount: number;
+          date?: string;
+          notes?: string;
+        } = {
+          id: p.id,
+          contributorId: p.contributorId,
+          amount: p.amount
+        };
+        if (p.date) cleanPayment.date = p.date;
+        if (p.notes) cleanPayment.notes = p.notes;
+        return cleanPayment;
+      });
+      
+      const expenseRef = doc(firestore, `users/${user.uid}/expenses`, expenseId);
+      await updateDoc(expenseRef, {
+        paymentAllocations: firestorePayments,
+        updatedAt: new Date().toISOString()
+      });
+      
+      // Update the expense in state
+      setExpenses(prev => 
+        prev.map(e => 
+          e.id === expenseId 
+            ? { ...e, paymentAllocations: updatedPayments, updatedAt: new Date().toISOString() } 
+            : e
+        )
+      );
+    } catch (error) {
+      console.error('Error adding payment to expense:', error);
+      throw error;
+    }
+  };
+
+  const updatePaymentAllocation = async (expenseId: string, paymentId: string, data: Partial<PaymentAllocation>) => {
+    if (!user) return;
+    try {
+      // Find the expense
+      const expense = expenses.find(e => e.id === expenseId);
+      if (!expense) {
+        throw new Error(`Expense with id ${expenseId} not found`);
+      }
+      
+      // Find and update the payment allocation
+      const updatedPayments = expense.paymentAllocations.map(payment => 
+        payment.id === paymentId ? { ...payment, ...data } : payment
+      );
+      
+      // Update the expense in Firestore - make sure to sanitize the data
+      const firestorePayments = updatedPayments.map(p => {
+        // Create a clean object with no undefined values
+        const cleanPayment: {
+          id: string;
+          contributorId: string;
+          amount: number;
+          date?: string;
+          notes?: string;
+        } = {
+          id: p.id,
+          contributorId: p.contributorId,
+          amount: p.amount
+        };
+        if (p.date) cleanPayment.date = p.date;
+        if (p.notes) cleanPayment.notes = p.notes;
+        return cleanPayment;
+      });
+      
+      const expenseRef = doc(firestore, `users/${user.uid}/expenses`, expenseId);
+      await updateDoc(expenseRef, {
+        paymentAllocations: firestorePayments,
+        updatedAt: new Date().toISOString()
+      });
+      
+      // Update the expense in state
+      setExpenses(prev => 
+        prev.map(e => 
+          e.id === expenseId 
+            ? { ...e, paymentAllocations: updatedPayments, updatedAt: new Date().toISOString() } 
+            : e
+        )
+      );
+    } catch (error) {
+      console.error('Error updating payment allocation:', error);
+      throw error;
+    }
+  };
+
+  const removePaymentFromExpense = async (expenseId: string, paymentId: string) => {
+    if (!user) return;
+    try {
+      // Find the expense
+      const expense = expenses.find(e => e.id === expenseId);
+      if (!expense) {
+        throw new Error(`Expense with id ${expenseId} not found`);
+      }
+      
+      // Remove the payment allocation
+      const updatedPayments = expense.paymentAllocations.filter(payment => payment.id !== paymentId);
+      
+      // Update the expense in Firestore - make sure to sanitize the data
+      const firestorePayments = updatedPayments.map(p => {
+        // Create a clean object with no undefined values
+        const cleanPayment: {
+          id: string;
+          contributorId: string;
+          amount: number;
+          date?: string;
+          notes?: string;
+        } = {
+          id: p.id,
+          contributorId: p.contributorId,
+          amount: p.amount
+        };
+        if (p.date) cleanPayment.date = p.date;
+        if (p.notes) cleanPayment.notes = p.notes;
+        return cleanPayment;
+      });
+      
+      const expenseRef = doc(firestore, `users/${user.uid}/expenses`, expenseId);
+      await updateDoc(expenseRef, {
+        paymentAllocations: firestorePayments,
+        updatedAt: new Date().toISOString()
+      });
+      
+      // Update the expense in state
+      setExpenses(prev => 
+        prev.map(e => 
+          e.id === expenseId 
+            ? { ...e, paymentAllocations: updatedPayments, updatedAt: new Date().toISOString() } 
+            : e
+        )
+      );
+    } catch (error) {
+      console.error('Error removing payment from expense:', error);
       throw error;
     }
   };
@@ -437,6 +606,9 @@ export const WeddingProvider = ({ children }: { children: ReactNode }) => {
     addNewExpense,
     updateExistingExpense,
     removeExpense,
+    addPaymentToExpense,
+    updatePaymentAllocation,
+    removePaymentFromExpense,
     addNewContributor,
     updateExistingContributor,
     removeContributor,

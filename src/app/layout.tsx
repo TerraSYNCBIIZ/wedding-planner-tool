@@ -7,6 +7,7 @@ import Link from "next/link";
 import { BackButton } from "../components/ui/BackButton";
 import { ParallaxBackground } from "../components/ui/ParallaxBackground";
 import { AuthProvider } from '@/context/AuthContext';
+import { InvitationProvider } from '@/context/InvitationContext';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -23,6 +24,11 @@ export const metadata: Metadata = {
   description: "A tactical tool for planning and tracking wedding finances",
 };
 
+// This is the server part of the layout that exports metadata
+
+// Client part is wrapped in a client component
+import ClientLayout from './client-layout';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -33,39 +39,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background min-h-screen`}
       >
-        <ParallaxBackground />
-        <AuthProvider>
-          <WeddingProvider>
-            <div className="flex flex-col min-h-screen">
-              <AppHeader />
-              <main className="flex-grow py-8">
-                {children}
-              </main>
-              <footer className="border-t py-6 bg-muted/30">
-                <div className="container flex flex-col sm:flex-row justify-between items-center">
-                  <p className="text-sm text-muted-foreground">
-                    Wedding Finance Planner &copy; {new Date().getFullYear()}
-                  </p>
-                  <div className="flex items-center gap-4 mt-4 sm:mt-0">
-                    <BackButton />
-                    <Link
-                      href="/privacy"
-                      className="text-sm text-muted-foreground hover:text-foreground"
-                    >
-                      Privacy
-                    </Link>
-                    <Link
-                      href="/help"
-                      className="text-sm text-muted-foreground hover:text-foreground"
-                    >
-                      Help
-                    </Link>
-                  </div>
-                </div>
-              </footer>
-            </div>
-          </WeddingProvider>
-        </AuthProvider>
+        <ClientLayout>
+          {children}
+        </ClientLayout>
       </body>
     </html>
   );

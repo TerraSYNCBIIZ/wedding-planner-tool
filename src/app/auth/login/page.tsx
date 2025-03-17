@@ -6,6 +6,10 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { AlertTriangle, LogIn } from 'lucide-react';
+import { firestore } from '@/lib/firebase';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { setHasCompletedSetup } from '@/lib/wizard-utils';
+import { setCookie } from 'cookies-next';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -28,10 +32,78 @@ export default function LoginPage() {
       setIsLoading(true);
       setError(null);
       
-      await signIn(email, password);
+      const userCredential = await signIn(email, password);
+      console.log('Login: User signed in successfully', { userId: userCredential.uid });
       
-      // After successful login, redirect to home page
-      router.push('/');
+      // Check if the user has already set up their wedding data in any form
+      const userId = userCredential.uid;
+      
+      // First check if they own a wedding
+      console.log('Login: Checking if user owns a wedding');
+      const weddingDoc = await getDoc(doc(firestore, 'weddings', userId));
+      
+      if (weddingDoc.exists()) {
+        // If wedding data exists, mark setup as completed and go to dashboard
+        console.log('Login: User owns a wedding, marking setup as complete');
+        
+        // Set cookies directly, in addition to using the utility
+        const expiryDate = new Date();
+        expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+        
+        setCookie('hasCompletedSetup', 'true', { 
+          expires: expiryDate,
+          path: '/'
+        });
+        
+        setCookie('currentWeddingId', userId, {
+          expires: expiryDate,
+          path: '/'
+        });
+        
+        // Also use our utility to set localStorage
+        setHasCompletedSetup(userId);
+        
+        router.push('/');
+        return;
+      }
+      
+      // Then check if they are a member of any weddings
+      console.log('Login: Checking if user is a member of any weddings');
+      const membershipQuery = query(
+        collection(firestore, 'workspaceUsers'),
+        where('userId', '==', userId)
+      );
+      
+      const membershipsSnapshot = await getDocs(membershipQuery);
+      
+      if (!membershipsSnapshot.empty) {
+        // The user has at least one membership
+        console.log('Login: User is a member of at least one wedding, marking setup as complete');
+        
+        // Set cookies directly, in addition to using the utility
+        const expiryDate = new Date();
+        expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+        
+        setCookie('hasCompletedSetup', 'true', { 
+          expires: expiryDate,
+          path: '/'
+        });
+        
+        setCookie('currentWeddingId', 'member', {
+          expires: expiryDate,
+          path: '/'
+        });
+        
+        // Also use our utility to set localStorage
+        setHasCompletedSetup('member');
+        
+        router.push('/');
+        return;
+      }
+      
+      // If no wedding data or memberships exist, redirect to setup wizard
+      console.log('Login: No wedding data or memberships found, redirecting to setup wizard');
+      router.push('/setup-wizard');
     } catch (error: unknown) {
       // Extract error message from Firebase
       let errorMessage = 'An error occurred during sign in';
@@ -52,6 +124,7 @@ export default function LoginPage() {
         }
       }
       
+      console.error('Login: Error during sign in:', error);
       setError(errorMessage);
     } finally {
       setIsLoading(false);

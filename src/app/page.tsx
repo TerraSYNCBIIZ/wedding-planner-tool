@@ -8,12 +8,84 @@ import { Button } from '../components/ui/Button';
 import { WeddingDetails } from '@/components/dashboard/WeddingDetails';
 import { useAuth } from '@/context/AuthContext';
 import { UpcomingPayments } from '@/components/dashboard/UpcomingPayments';
+import { WorkspaceMembership } from '@/components/dashboard/WorkspaceMembership';
+import { useRouter } from 'next/navigation';
+import { firestore } from '@/lib/firebase';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { hasCompletedSetup, setHasCompletedSetup } from '@/lib/wizard-utils';
 
 export default function Home() {
   const { expenses, gifts, contributors, isLoading, getDashboardStats, exportData } = useWedding();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [stats, setStats] = useState(() => getDashboardStats());
   const [showFallback, setShowFallback] = useState(false);
+  const [checkingSetup, setCheckingSetup] = useState(true);
+  const router = useRouter();
+
+  // Check if the user has completed setup
+  useEffect(() => {
+    const checkUserSetup = async () => {
+      // Wait for auth to load
+      if (authLoading) return;
+      
+      // If user is not logged in, don't do anything
+      // The app will handle this separately
+      if (!user) {
+        console.log('Dashboard: No authenticated user');
+        setCheckingSetup(false);
+        return;
+      }
+      
+      try {
+        console.log('Dashboard: Checking if user has completed setup');
+        
+        // First check local storage/cookies
+        if (hasCompletedSetup()) {
+          console.log('Dashboard: User has completed setup (from localStorage/cookies)');
+          setCheckingSetup(false);
+          return;
+        }
+        
+        console.log('Dashboard: Setup completion not found in localStorage/cookies, checking Firestore');
+        
+        // Check if user has their own wedding data
+        const weddingDoc = await getDoc(doc(firestore, 'weddings', user.uid));
+        
+        if (weddingDoc.exists()) {
+          console.log('Dashboard: User has wedding data in Firestore, marking setup as complete');
+          // User has setup data, mark it as completed
+          setHasCompletedSetup(user.uid);
+          setCheckingSetup(false);
+          return;
+        }
+        
+        // Check if user is a member of any weddings
+        const membershipQuery = query(
+          collection(firestore, 'workspaceUsers'),
+          where('userId', '==', user.uid)
+        );
+        
+        const membershipsSnapshot = await getDocs(membershipQuery);
+        
+        if (!membershipsSnapshot.empty) {
+          console.log('Dashboard: User is a member of at least one wedding, marking setup as complete');
+          // The user has at least one membership, they don't need setup
+          setHasCompletedSetup('member');
+          setCheckingSetup(false);
+          return;
+        }
+        
+        // User hasn't completed setup
+        console.log('Dashboard: User has not completed setup, redirecting to wizard');
+        router.push('/setup-wizard');
+      } catch (error) {
+        console.error('Dashboard: Error checking setup status:', error);
+        setCheckingSetup(false);
+      }
+    };
+    
+    checkUserSetup();
+  }, [user, authLoading, router]);
 
   useEffect(() => {
     setStats(getDashboardStats());
@@ -28,7 +100,8 @@ export default function Home() {
     return () => clearTimeout(timeout);
   }, [getDashboardStats, isLoading]);
 
-  if (isLoading && !showFallback) {
+  // Show loading while checking setup or loading wedding data
+  if ((isLoading && !showFallback) || checkingSetup) {
     return (
       <div className="flex items-center justify-center min-h-[80vh]">
         <div className="text-center">
@@ -218,6 +291,13 @@ export default function Home() {
         <div className="mb-12">
           <UpcomingPayments />
         </div>
+        
+        {/* Workspace Membership (new component) */}
+        {user && (
+          <div className="mb-12">
+            <WorkspaceMembership />
+          </div>
+        )}
         
         {/* Contributors & Gifts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">

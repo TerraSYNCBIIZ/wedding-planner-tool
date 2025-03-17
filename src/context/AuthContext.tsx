@@ -8,7 +8,10 @@ import {
   createUserWithEmailAndPassword, 
   signOut as firebaseSignOut,
   updateProfile,
-  User
+  User,
+  deleteUser as firebaseDeleteUser,
+  EmailAuthProvider,
+  reauthenticateWithCredential
 } from 'firebase/auth';
 import { app } from '@/lib/firebase';
 import { setCookie, deleteCookie } from 'cookies-next';
@@ -19,13 +22,23 @@ const auth = getAuth(app);
 // Function to set auth token cookie
 const setAuthCookie = (token: string | null) => {
   if (token) {
+    // Set cookie with consistent naming (authToken)
+    setCookie('authToken', token, {
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: '/'
+    });
+    
+    // Also set the old auth_token for backward compatibility
     setCookie('auth_token', token, {
       maxAge: 60 * 60 * 24 * 7, // 7 days
       path: '/'
     });
   } else {
+    // Clear both cookie formats when signing out
+    deleteCookie('authToken', { path: '/' });
     deleteCookie('auth_token', { path: '/' });
     deleteCookie('hasCompletedSetup', { path: '/' });
+    deleteCookie('currentWeddingId', { path: '/' });
   }
 };
 
@@ -37,6 +50,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, displayName: string) => Promise<User>;
   signOut: () => Promise<void>;
   updateUserProfile: (displayName: string) => Promise<void>;
+  deleteAccount: (password: string) => Promise<boolean>;
 }
 
 // Create the context
@@ -54,22 +68,58 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   
   // Monitor auth state
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
-      
-      // Get ID token for cookie
-      if (user) {
-        const token = await user.getIdToken();
-        setAuthCookie(token);
-      } else {
-        setAuthCookie(null);
-      }
-      
-      setLoading(false);
-    });
+    console.log('Setting up auth state listener...');
+    let isMounted = true;
     
-    // Cleanup subscription
-    return () => unsubscribe();
+    try {
+      const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        if (!isMounted) return;
+        
+        console.log('Auth state changed:', user ? `User ${user.uid} signed in` : 'No user');
+        setUser(user);
+        
+        // Get ID token for cookie
+        if (user) {
+          try {
+            const token = await user.getIdToken();
+            setAuthCookie(token);
+            console.log('Auth token obtained and cookie set');
+          } catch (tokenError) {
+            console.error('Error getting ID token:', tokenError);
+          }
+        } else {
+          setAuthCookie(null);
+          console.log('Auth cookies cleared');
+        }
+        
+        setLoading(false);
+      }, (error) => {
+        if (!isMounted) return;
+        
+        console.error('Auth state change error:', error);
+        setLoading(false);
+      });
+      
+      // Add a safety timeout to ensure loading state doesn't get stuck
+      const safetyTimeout = setTimeout(() => {
+        if (!isMounted) return;
+        
+        console.log('Auth safety timeout triggered, forcing loading state to false');
+        setLoading(false);
+      }, 10000);
+      
+      // Cleanup subscription
+      return () => {
+        isMounted = false;
+        console.log('Cleaning up auth state listener');
+        unsubscribe();
+        clearTimeout(safetyTimeout);
+      };
+    } catch (error) {
+      console.error('Error setting up auth state listener:', error);
+      setLoading(false);
+      return () => { isMounted = false; };
+    }
   }, []);
   
   // Sign in with email and password
@@ -111,18 +161,44 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   
   // Update user profile
   const updateUserProfile = async (displayName: string): Promise<void> => {
-    if (!user) {
-      throw new Error('No user is signed in');
-    }
-    
     try {
-      await updateProfile(user, { displayName });
-      
-      // Force refresh the user object
-      setUser({ ...user });
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, { displayName });
+        
+        // Update local state
+        setUser({ ...auth.currentUser });
+      }
     } catch (error) {
       console.error('Error updating profile:', error);
       throw error;
+    }
+  };
+  
+  // Delete user account
+  const deleteAccount = async (password: string): Promise<boolean> => {
+    try {
+      const user = auth.currentUser;
+      if (!user || !user.email) {
+        throw new Error('No authenticated user found');
+      }
+      
+      // Re-authenticate user before deleting account
+      const credential = EmailAuthProvider.credential(user.email, password);
+      await reauthenticateWithCredential(user, credential);
+      
+      // Delete user
+      await firebaseDeleteUser(user);
+      
+      // Clear cookies
+      setAuthCookie(null);
+      
+      // Update state
+      setUser(null);
+      
+      return true;
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      return false;
     }
   };
   
@@ -132,7 +208,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signIn,
     signUp,
     signOut,
-    updateUserProfile
+    updateUserProfile,
+    deleteAccount
   };
   
   return (
