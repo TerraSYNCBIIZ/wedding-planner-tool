@@ -12,7 +12,7 @@ interface ExpensesTableProps {
 export function ExpensesTable({ expenses }: ExpensesTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | 'all'>('all');
-  const [paymentStatusFilter, setPaymentStatusFilter] = useState<'all' | 'paid' | 'partial' | 'unpaid'>('all');
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<'all' | 'paid' | 'paid-future' | 'partial' | 'unpaid'>('all');
   const [sortBy, setSortBy] = useState<'title' | 'amount' | 'dueDate'>('dueDate');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -26,8 +26,27 @@ export function ExpensesTable({ expenses }: ExpensesTableProps) {
   // Helper to determine payment status
   const getPaymentStatus = (expense: Expense) => {
     const paidAmount = calculatePaidAmount(expense);
+    
+    // Check if it's unpaid
     if (paidAmount <= 0) return 'unpaid';
-    if (paidAmount >= expense.totalAmount) return 'paid';
+    
+    // Check if it's fully paid
+    if (paidAmount >= expense.totalAmount) {
+      // Check if any payments have future dates
+      const hasFuturePayments = expense.paymentAllocations.some(payment => {
+        if (!payment.date) return false;
+        const paymentDate = new Date(payment.date);
+        const today = new Date();
+        // Reset time to compare just the dates
+        today.setHours(0, 0, 0, 0);
+        paymentDate.setHours(0, 0, 0, 0);
+        return paymentDate > today;
+      });
+      
+      return hasFuturePayments ? 'paid-future' : 'paid';
+    }
+    
+    // Otherwise it's partially paid
     return 'partial';
   };
   
@@ -145,10 +164,11 @@ export function ExpensesTable({ expenses }: ExpensesTableProps) {
           <select
             className="w-full p-2 border rounded-md"
             value={paymentStatusFilter}
-            onChange={(e) => setPaymentStatusFilter(e.target.value as 'all' | 'paid' | 'partial' | 'unpaid')}
+            onChange={(e) => setPaymentStatusFilter(e.target.value as 'all' | 'paid' | 'paid-future' | 'partial' | 'unpaid')}
           >
             <option value="all">All Payment Statuses</option>
             <option value="paid">Paid</option>
+            <option value="paid-future">Paid (Future)</option>
             <option value="partial">Partially Paid</option>
             <option value="unpaid">Unpaid</option>
           </select>
@@ -230,11 +250,13 @@ export function ExpensesTable({ expenses }: ExpensesTableProps) {
                         <span 
                           className={`inline-block py-1 px-2 rounded-full text-xs font-medium 
                             ${status === 'paid' ? 'bg-green-100 text-green-800' : ''}
+                            ${status === 'paid-future' ? 'bg-blue-100 text-blue-800' : ''}
                             ${status === 'partial' ? 'bg-yellow-100 text-yellow-800' : ''}
                             ${status === 'unpaid' ? 'bg-red-100 text-red-800' : ''}
                           `}
                         >
                           {status === 'paid' && 'Paid'}
+                          {status === 'paid-future' && 'Paid (Future)'}
                           {status === 'partial' && 'Partial'}
                           {status === 'unpaid' && 'Unpaid'}
                         </span>

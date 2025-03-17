@@ -31,6 +31,33 @@ export const formatCurrency = (amount: number, currency = 'USD'): string => {
   }).format(amount);
 };
 
+// Calculate payment status including future payments
+export const calculatePaymentStatus = (expense: Expense): string => {
+  const paidAmount = calculatePaidAmount(expense);
+  
+  // Check if it's unpaid
+  if (paidAmount <= 0) return 'Unpaid';
+  
+  // Check if it's fully paid
+  if (paidAmount >= expense.totalAmount) {
+    // Check if any payments have future dates
+    const hasFuturePayments = expense.paymentAllocations.some(payment => {
+      if (!payment.date) return false;
+      const paymentDate = new Date(payment.date);
+      const today = new Date();
+      // Reset time to compare just the dates
+      today.setHours(0, 0, 0, 0);
+      paymentDate.setHours(0, 0, 0, 0);
+      return paymentDate > today;
+    });
+    
+    return hasFuturePayments ? 'Paid (Future)' : 'Paid';
+  }
+  
+  // Otherwise it's partially paid
+  return 'Partially Paid';
+};
+
 // Generate Excel worksheet data for expenses
 export const generateExpensesWorksheet = (
   expenses: Expense[],
@@ -54,8 +81,7 @@ export const generateExpensesWorksheet = (
   const data = expenses.map(expense => {
     const paidAmount = calculatePaidAmount(expense);
     const remainingAmount = calculateRemainingAmount(expense);
-    const status = paidAmount === 0 ? 'Unpaid' : 
-                  paidAmount === expense.totalAmount ? 'Paid' : 'Partially Paid';
+    const status = calculatePaymentStatus(expense);
     
     // Get contributor names for this expense
     const contributorIds = expense.paymentAllocations.map(a => a.contributorId);
@@ -174,8 +200,7 @@ export const generateUpcomingPaymentsWorksheet = (
   const data = upcomingExpenses.map(expense => {
     const paidAmount = calculatePaidAmount(expense);
     const remainingAmount = calculateRemainingAmount(expense);
-    const status = paidAmount === 0 ? 'Unpaid' : 
-                  paidAmount === expense.totalAmount ? 'Paid' : 'Partially Paid';
+    const status = calculatePaymentStatus(expense);
     
     // Get contributor names for this expense
     const contributorIds = expense.paymentAllocations.map(a => a.contributorId);
